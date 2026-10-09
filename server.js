@@ -1,4 +1,4 @@
-// server.js
+/*// server.js
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
@@ -76,17 +76,17 @@ app.put('/api/inventario/:id', (req, res) => {
 });
 
 
-app.get('/api/monedas', (req, res) => { /* ... igual ... */
+app.get('/api/monedas', (req, res) => { /* ... igual ... 
     db.get(`SELECT total_bronce FROM Monedero WHERE id = 1`, [], (err, row) => {
         res.json({ total_bronce: row ? row.total_bronce : 0 });
     });
 });
 
-app.post('/api/monedas', (req, res) => { /* ... igual ... */
+app.post('/api/monedas', (req, res) => { /* ... igual ... 
     const { total_bronce } = req.body;
     db.run(`UPDATE Monedero SET total_bronce = ? WHERE id = 1`, [total_bronce], function(err) {
         res.json({ success: true });
     });
 });
 
-app.listen(3000, () => { console.log('Servidor corriendo en http://localhost:3000'); });
+app.listen(3000, () => { console.log('Servidor corriendo en http://localhost:3000'); });*/
