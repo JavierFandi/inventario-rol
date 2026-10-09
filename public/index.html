@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Inventario RPG</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="inventory-container">
+        <div class="grid" id="inventory-grid"></div>
+        
+        <!-- Barra de monedas ACTUALIZADA -->
+        <div class="coins-bar">
+            <div class="coin-box box-gold" onclick="abrirModalMonedas()">Oro: <span id="val-oro">0</span></div>
+            <div class="coin-box box-silver" onclick="abrirModalMonedas()">Plata: <span id="val-plata">0</span></div>
+            <div class="coin-box box-bronze" onclick="abrirModalMonedas()">Bronce: <span id="val-bronce">0</span></div>
+        </div>
+    </div>
+
+    <div id="add-modal" style="display:none; position:fixed; top:15%; left:50%; transform: translate(-50%, 0); background:#222; padding:25px; border:1px solid #555; border-radius: 8px; width: 320px; color: white; z-index: 100;">
+        <h3 style="color:#d4a373; margin-top:0; text-align: center;">Agregar Ítem</h3>
+        
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; font-size: 13px; color: #bbb;">Nombre:</label>
+            <input type="text" id="item-name" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white;">
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; font-size: 13px; color: #bbb;">Tipo:</label>
+            <select id="item-type" onchange="mostrarCamposEspeciales()" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white;">
+                <option value="general">General (Zona Roja)</option>
+                <option value="arma">Arma (Zona Verde)</option>
+                <option value="armadura">Armadura (Zona Celeste)</option>
+                <option value="carcaj">Carcaj (Zona Verde)</option> <!-- Cambio aquí -->
+            </select>
+        </div>
+
+        <div id="extra-stats-container" style="display: none; margin-bottom: 15px; padding: 10px; border: 1px dashed #555; border-radius: 4px; background: #1a1a1a;">
+            <label id="extra-stat-label" style="display: block; font-size: 13px; color: #d4a373;">Estadística:</label>
+            <input type="text" id="item-stat" style="width: 93%; padding: 8px; background: #111; border: 1px solid #444; color: white;">
+        </div>
+
+        <!-- CONTENEDOR ESPECIAL PARA EL CARCAJ -->
+        <div id="quiver-container" style="display: none; margin-bottom: 15px; padding: 10px; border: 1px dashed #555; border-radius: 4px; background: #1a1a1a;">
+            <label style="display: block; font-size: 13px; color: #d4a373;">Tamaño del Carcaj:</label>
+            <select id="quiver-size" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white; margin-bottom: 10px;">
+                <option value="chico">Chico (Máx 10 flechas)</option>
+                <option value="mediano">Mediano (Máx 20 flechas)</option>
+                <option value="grande">Grande (Máx 50 flechas)</option>
+            </select>
+            <label style="display: block; font-size: 13px; color: #bbb;">Flechas actuales:</label>
+            <input type="number" id="quiver-arrows" value="0" min="0" style="width: 94%; padding: 8px; background: #111; border: 1px solid #444; color: white;">
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <div style="flex: 1;"><label style="font-size: 13px; color: #bbb;">Ancho:</label><input type="number" id="item-w" value="1" min="1" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white;"></div>
+            <div style="flex: 1;"><label style="font-size: 13px; color: #bbb;">Alto:</label><input type="number" id="item-h" value="1" min="1" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white;"></div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="cerrarModal()" style="padding: 8px 15px; background: #555; color: white; border: none; cursor: pointer;">Cancelar</button>
+            <button onclick="guardarItem()" style="padding: 8px 15px; background: #0c6b5d; color: white; border: none; cursor: pointer;">Guardar</button>
+        </div>
+    </div>
+
+    <!-- NUEVO: MODAL DE INSPECCIÓN/EDICIÓN -->
+    <div id="inspect-modal" style="display:none; position:fixed; top:20%; left:50%; transform: translate(-50%, 0); background:#1a1a1a; padding:25px; border:2px solid #d4a373; border-radius: 8px; width: 300px; color: white; z-index: 100;">
+        <h3 id="inspect-name" style="color:#fff; margin-top:0; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px;">Nombre Ítem</h3>
+        <p id="inspect-type" style="font-size: 12px; color: #aaa; text-align: center; text-transform: uppercase;">TIPO</p>
+        
+        <div id="inspect-stat-box" style="display:none; text-align: center; margin: 15px 0; color: #d4a373; font-weight: bold; font-size: 18px;">
+            <span id="inspect-stat"></span>
+        </div>
+
+        <div id="inspect-quiver-box" style="display:none; margin: 15px 0;">
+            <label style="display: block; font-size: 13px; color: #bbb; text-align: center;">Gestión de Flechas:</label>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 5px;">
+                <button onclick="cambiarFlechas(-1)" style="padding: 5px 10px; background: #8b0000; color: white; border: none; cursor: pointer;">-1</button>
+                <span id="inspect-arrows" style="font-size: 20px; font-weight: bold;">0</span> / <span id="inspect-max-arrows">0</span>
+                <button onclick="cambiarFlechas(1)" style="padding: 5px 10px; background: #0c6b5d; color: white; border: none; cursor: pointer;">+1</button>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; gap: 10px; margin-top: 25px;">
+            <button onclick="cerrarInspectModal()" style="padding: 8px 15px; background: #555; color: white; border: none; cursor: pointer; flex: 1;">Cerrar</button>
+            <button onclick="eliminarItemSeleccionado()" style="padding: 8px 15px; background: #8b0000; color: white; border: none; cursor: pointer; flex: 1;">Eliminar</button>
+        </div>
+    </div>
+
+    <!-- NUEVO Modal para Modificar Monedas -->
+    <div id="coin-modal" style="display:none; position:fixed; top:20%; left:50%; transform: translate(-50%, 0); background:#222; padding:25px; border:1px solid #555; border-radius: 8px; width: 300px; color: white; z-index: 100;">
+        
+        <h3 style="color:#d4a373; margin-top:0; text-align: center;">Gestión de Billetera</h3>
+        <p style="font-size: 12px; color: #aaa; text-align: center; margin-bottom: 20px;">Ingresa las cantidades y elige si quieres sumarlas o restarlas.</p>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <div style="flex: 1; text-align: center;">
+                <label for="input-gold" style="display: block; margin-bottom: 5px; font-size: 13px; color: #b89325; font-weight: bold;">Oro</label>
+                <input type="number" id="input-gold" value="0" min="0" style="width: 100%; padding: 8px; box-sizing: border-box; background: #111; border: 1px solid #b89325; color: white; text-align: center;">
+            </div>
+            <div style="flex: 1; text-align: center;">
+                <label for="input-silver" style="display: block; margin-bottom: 5px; font-size: 13px; color: #8c8c8c; font-weight: bold;">Plata</label>
+                <input type="number" id="input-silver" value="0" min="0" style="width: 100%; padding: 8px; box-sizing: border-box; background: #111; border: 1px solid #8c8c8c; color: white; text-align: center;">
+            </div>
+            <div style="flex: 1; text-align: center;">
+                <label for="input-bronze" style="display: block; margin-bottom: 5px; font-size: 13px; color: #d4a373; font-weight: bold;">Bronce</label>
+                <input type="number" id="input-bronze" value="0" min="0" style="width: 100%; padding: 8px; box-sizing: border-box; background: #111; border: 1px solid #d4a373; color: white; text-align: center;">
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; gap: 10px;">
+            <button onclick="cerrarModalMonedas()" style="padding: 8px 10px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Cancelar</button>
+            <button onclick="procesarMonedas('restar')" style="padding: 8px 10px; background: #8b0000; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Quitar (-)</button>
+            <button onclick="procesarMonedas('sumar')" style="padding: 8px 10px; background: #0c6b5d; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Agregar (+)</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
