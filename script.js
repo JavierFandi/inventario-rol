@@ -4,12 +4,13 @@ import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, g
 
 // 2. PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE (Reemplaza este bloque)
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "tu-proyecto.firebaseapp.com",
-  projectId: "tu-proyecto",
-  storageBucket: "tu-proyecto.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef"
+  apiKey: "AIzaSyC1KwQiYN7B1Ej35AzmqkqdHuyPju1dTzs",
+  authDomain: "inventario-rpg-7f98a.firebaseapp.com",
+  projectId: "inventario-rpg-7f98a",
+  storageBucket: "inventario-rpg-7f98a.firebasestorage.app",
+  messagingSenderId: "224151251575",
+  appId: "1:224151251575:web:eba97e7b032e0af8e8f472",
+  measurementId: "G-23K05PE3QM"
 };
 
 // 3. Inicializar Firebase
