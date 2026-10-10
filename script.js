@@ -35,31 +35,28 @@ onAuthStateChanged(auth, async (user) => {
     const logoutBtn = document.getElementById('logout-btn');
     const userInfo = document.getElementById('user-info');
 
-    dibujarCuadriculaFondo(); // Siempre dibujamos el fondo
+    dibujarCuadriculaFondo(); 
 
     if (user) {
-        // Usuario logueado
+        // Usuario logueado normal (sin lista blanca)
         loginBtn.style.display = 'none';
         logoutBtn.style.display = 'inline-block';
         userInfo.style.display = 'inline-block';
         userInfo.innerText = `Jugador: ${user.displayName}`;
         
-        // Solo cargamos la BD si hay sesión iniciada
         await cargarMonedas();
         await cargarInventario();
-        await cargarFichas();
+        await cargarFichas(); // <--- NUEVO
     } else {
-        // Usuario no logueado
         loginBtn.style.display = 'inline-block';
         logoutBtn.style.display = 'none';
         userInfo.style.display = 'none';
         
-        // Limpiar pantalla
         document.querySelectorAll('.item').forEach(e => e.remove());
         totalBronceActual = 0;
-        fichasActuales = { Avar: 0 };
+        fichasActuales = { Avar: 0 }; // <--- NUEVO
         actualizarUIMonedas();
-        actualizarUIFichas();
+        actualizarUIFichas(); // <--- NUEVO
     }
 });
 
@@ -258,10 +255,10 @@ async function cargarFichas() {
     
     if (docSnap.exists()) {
         fichasActuales = docSnap.data();
-        if (fichasActuales.estandar === undefined) fichasActuales.estandar = 0;
+        if (fichasActuales.Avar === undefined) fichasActuales.Avar = 0;
     } else {
-        await setDoc(docRef, { estandar: 0 }); // Crea el documento de fichas
-        fichasActuales = { estandar: 0 };
+        await setDoc(docRef, { Avar: 0 }); // Crea el documento de fichas
+        fichasActuales = { Avar: 0 };
     }
     actualizarUIFichas();
 }
@@ -273,14 +270,14 @@ async function procesarFichas(operacion) {
     if (cantidad === 0) return cerrarModalFichas();
 
     if (operacion === 'sumar') {
-        fichasActuales.estandar += cantidad;
+        fichasActuales.Avar += cantidad;
     } else if (operacion === 'restar') {
-        if (cantidad > fichasActuales.estandar) return alert("Fichas insuficientes.");
-        fichasActuales.estandar -= cantidad;
+        if (cantidad > fichasActuales.Avar) return alert("Fichas insuficientes.");
+        fichasActuales.Avar -= cantidad;
     }
 
     try {
-        await updateDoc(doc(db, "config", "fichas"), { estandar: fichasActuales.estandar });
+        await updateDoc(doc(db, "config", "fichas"), { Avar: fichasActuales.Avar });
         actualizarUIFichas();
         cerrarModalFichas();
     } catch (e) {
@@ -289,7 +286,7 @@ async function procesarFichas(operacion) {
 }
 
 function actualizarUIFichas() {
-    document.getElementById('val-fichas-estandar').innerText = fichasActuales.estandar;
+    document.getElementById('val-fichas-estandar').innerText = fichasActuales.Avar;
 }
 
 // LÓGICA DE INTERFAZ FICHAS
