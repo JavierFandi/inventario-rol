@@ -1,5 +1,5 @@
 // 1. Importar librerías de Firebase directamente (CDN)
-import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 // 2. PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE (Reemplaza este bloque)
