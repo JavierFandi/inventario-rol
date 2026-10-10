@@ -264,7 +264,7 @@ async function cargarFichas() {
 }
 
 async function procesarFichas(operacion) {
-    let cantidad = parseInt(document.getElementById('input-fichas-estandar').value) || 0;
+    let cantidad = parseInt(document.getElementById('input-fichas-Avar').value) || 0;
 
     if (cantidad < 0) return alert("Ingresa números positivos.");
     if (cantidad === 0) return cerrarModalFichas();
@@ -286,12 +286,12 @@ async function procesarFichas(operacion) {
 }
 
 function actualizarUIFichas() {
-    document.getElementById('val-fichas-estandar').innerText = fichasActuales.Avar;
+    document.getElementById('val-fichas-Avar').innerText = fichasActuales.Avar;
 }
 
 // LÓGICA DE INTERFAZ FICHAS
 function abrirModalFichas() {
-    document.getElementById('input-fichas-estandar').value = '0';
+    document.getElementById('input-fichas-Avar').value = '0';
     document.getElementById('token-modal').style.display = 'block';
 }
 
