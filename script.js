@@ -27,6 +27,7 @@ const COLS = 9;
 let slotDestino = { r: 1, c: 1 };
 let totalBronceActual = 0;
 let itemSeleccionadoParaEdicion = null;
+let fichasActuales = { Avar: 0 }; // Objeto preparado para más tipos de fichas
 
 // --- SISTEMA DE USUARIOS ---
 onAuthStateChanged(auth, async (user) => {
@@ -46,6 +47,7 @@ onAuthStateChanged(auth, async (user) => {
         // Solo cargamos la BD si hay sesión iniciada
         await cargarMonedas();
         await cargarInventario();
+        await cargarFichas();
     } else {
         // Usuario no logueado
         loginBtn.style.display = 'inline-block';
@@ -55,7 +57,9 @@ onAuthStateChanged(auth, async (user) => {
         // Limpiar pantalla
         document.querySelectorAll('.item').forEach(e => e.remove());
         totalBronceActual = 0;
+        fichasActuales = { Avar: 0 };
         actualizarUIMonedas();
+        actualizarUIFichas();
     }
 });
 
@@ -246,6 +250,58 @@ function actualizarUIMonedas() {
     document.getElementById('val-bronce').innerText = totalBronceActual % 10;
 }
 
+// --- CONEXIÓN FIREBASE: FICHAS ---
+
+async function cargarFichas() {
+    const docRef = doc(db, "config", "fichas");
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+        fichasActuales = docSnap.data();
+        if (fichasActuales.estandar === undefined) fichasActuales.estandar = 0;
+    } else {
+        await setDoc(docRef, { estandar: 0 }); // Crea el documento de fichas
+        fichasActuales = { estandar: 0 };
+    }
+    actualizarUIFichas();
+}
+
+async function procesarFichas(operacion) {
+    let cantidad = parseInt(document.getElementById('input-fichas-estandar').value) || 0;
+
+    if (cantidad < 0) return alert("Ingresa números positivos.");
+    if (cantidad === 0) return cerrarModalFichas();
+
+    if (operacion === 'sumar') {
+        fichasActuales.estandar += cantidad;
+    } else if (operacion === 'restar') {
+        if (cantidad > fichasActuales.estandar) return alert("Fichas insuficientes.");
+        fichasActuales.estandar -= cantidad;
+    }
+
+    try {
+        await updateDoc(doc(db, "config", "fichas"), { estandar: fichasActuales.estandar });
+        actualizarUIFichas();
+        cerrarModalFichas();
+    } catch (e) {
+        alert("Error al guardar fichas: " + e.message);
+    }
+}
+
+function actualizarUIFichas() {
+    document.getElementById('val-fichas-estandar').innerText = fichasActuales.estandar;
+}
+
+// LÓGICA DE INTERFAZ FICHAS
+function abrirModalFichas() {
+    document.getElementById('input-fichas-estandar').value = '0';
+    document.getElementById('token-modal').style.display = 'block';
+}
+
+function cerrarModalFichas() { 
+    document.getElementById('token-modal').style.display = 'none'; 
+}
+
 // --- LÓGICA DE INTERFAZ (MODALES) ---
 
 function mostrarCamposEspeciales() {
@@ -330,3 +386,7 @@ window.cambiarFlechas = cambiarFlechas;
 
 window.iniciarSesion = iniciarSesion;
 window.cerrarSesion = cerrarSesion;
+
+window.abrirModalFichas = abrirModalFichas;
+window.cerrarModalFichas = cerrarModalFichas;
+window.procesarFichas = procesarFichas;

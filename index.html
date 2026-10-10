@@ -23,6 +23,13 @@
             <div class="coin-box box-silver" onclick="abrirModalMonedas()">Plata: <span id="val-plata">0</span></div>
             <div class="coin-box box-bronze" onclick="abrirModalMonedas()">Bronce: <span id="val-bronce">0</span></div>
         </div>
+
+        <!-- Barra de Fichas (Preparada para agregar más en el futuro) -->
+        <div style="display: flex; gap: 10px; margin-top: 10px; margin-bottom: 20px;">
+            <div onclick="abrirModalFichas()" style="background: #2b2d42; border: 1px solid #8d99ae; padding: 10px; border-radius: 4px; cursor: pointer; color: white; text-align: center; flex: 1; font-weight: bold;">
+                Fichas: <span id="val-fichas-estandar">0</span>
+            </div>
+        </div>
     </div>
 
     <div id="add-modal" style="display:none; position:fixed; top:15%; left:50%; transform: translate(-50%, 0); background:#222; padding:25px; border:1px solid #555; border-radius: 8px; width: 320px; color: white; z-index: 100;">
@@ -120,6 +127,22 @@
             <button onclick="cerrarModalMonedas()" style="padding: 8px 10px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Cancelar</button>
             <button onclick="procesarMonedas('restar')" style="padding: 8px 10px; background: #8b0000; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Quitar (-)</button>
             <button onclick="procesarMonedas('sumar')" style="padding: 8px 10px; background: #0c6b5d; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Agregar (+)</button>
+        </div>
+    </div>
+
+    <!-- NUEVO Modal para Modificar Fichas -->
+    <div id="token-modal" style="display:none; position:fixed; top:20%; left:50%; transform: translate(-50%, 0); background:#222; padding:25px; border:1px solid #8d99ae; border-radius: 8px; width: 300px; color: white; z-index: 100;">
+        <h3 style="color:#8d99ae; margin-top:0; text-align: center;">Gestión de Fichas</h3>
+        
+        <div style="margin-bottom: 20px;">
+            <label for="input-fichas-estandar" style="display: block; margin-bottom: 5px; font-size: 13px; color: #edf2f4; font-weight: bold; text-align: center;">Fichas Estándar</label>
+            <input type="number" id="input-fichas-estandar" value="0" min="0" style="width: 100%; padding: 8px; box-sizing: border-box; background: #111; border: 1px solid #8d99ae; color: white; text-align: center;">
+        </div>
+
+        <div style="display: flex; justify-content: space-between; gap: 10px;">
+            <button onclick="cerrarModalFichas()" style="padding: 8px 10px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Cancelar</button>
+            <button onclick="procesarFichas('restar')" style="padding: 8px 10px; background: #8b0000; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Quitar (-)</button>
+            <button onclick="procesarFichas('sumar')" style="padding: 8px 10px; background: #0c6b5d; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Agregar (+)</button>
         </div>
     </div>
 </body>
