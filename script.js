@@ -1,6 +1,8 @@
 // 1. Importar librerías de Firebase directamente (CDN)
+// 1. Importar librerías de Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
 // 2. PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE (Reemplaza este bloque)
 const firebaseConfig = {
@@ -16,6 +18,8 @@ const firebaseConfig = {
 // 3. Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
 
 // --- VARIABLES GLOBALES Y CONFIGURACIÓN ---
 const ROWS = 8;
@@ -24,11 +28,52 @@ let slotDestino = { r: 1, c: 1 };
 let totalBronceActual = 0;
 let itemSeleccionadoParaEdicion = null;
 
-window.onload = async () => {
-    dibujarCuadriculaFondo();
-    await cargarMonedas();
-    await cargarInventario();
-};
+// --- SISTEMA DE USUARIOS ---
+onAuthStateChanged(auth, async (user) => {
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const userInfo = document.getElementById('user-info');
+
+    dibujarCuadriculaFondo(); // Siempre dibujamos el fondo
+
+    if (user) {
+        // Usuario logueado
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'inline-block';
+        userInfo.style.display = 'inline-block';
+        userInfo.innerText = `Jugador: ${user.displayName}`;
+        
+        // Solo cargamos la BD si hay sesión iniciada
+        await cargarMonedas();
+        await cargarInventario();
+    } else {
+        // Usuario no logueado
+        loginBtn.style.display = 'inline-block';
+        logoutBtn.style.display = 'none';
+        userInfo.style.display = 'none';
+        
+        // Limpiar pantalla
+        document.querySelectorAll('.item').forEach(e => e.remove());
+        totalBronceActual = 0;
+        actualizarUIMonedas();
+    }
+});
+
+async function iniciarSesion() {
+    try {
+        await signInWithPopup(auth, provider);
+    } catch (error) {
+        alert("Error al iniciar sesión: " + error.message);
+    }
+}
+
+async function cerrarSesion() {
+    try {
+        await signOut(auth);
+    } catch (error) {
+        alert("Error al cerrar sesión: " + error.message);
+    }
+}
 
 function dibujarCuadriculaFondo() {
     const grid = document.getElementById('inventory-grid');
@@ -282,3 +327,6 @@ window.abrirInspectModal = abrirInspectModal;
 window.cerrarInspectModal = cerrarInspectModal;
 window.eliminarItemSeleccionado = eliminarItemSeleccionado;
 window.cambiarFlechas = cambiarFlechas;
+
+window.iniciarSesion = iniciarSesion;
+window.cerrarSesion = cerrarSesion;

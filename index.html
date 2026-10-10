@@ -8,6 +8,13 @@
 </head>
 <body>
     <div class="inventory-container">
+        <!-- NUEVO: Barra de Autenticación -->
+        <div id="auth-bar" style="text-align: right; margin-bottom: 15px; color: white;">
+            <span id="user-info" style="display:none; margin-right: 15px; color: #d4a373;"></span>
+            <button id="login-btn" onclick="iniciarSesion()" style="padding: 8px 15px; background: #0c6b5d; color: white; border: none; cursor: pointer; border-radius: 4px;">Iniciar Sesión con Google</button>
+            <button id="logout-btn" onclick="cerrarSesion()" style="display:none; padding: 8px 15px; background: #8b0000; color: white; border: none; cursor: pointer; border-radius: 4px;">Cerrar Sesión</button>
+        </div>
+
         <div class="grid" id="inventory-grid"></div>
         
         <!-- Barra de monedas ACTUALIZADA -->
