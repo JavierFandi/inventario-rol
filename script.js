@@ -144,7 +144,7 @@ async function guardarItem() {
     let errorZona = validarColorZona(slotDestino.r, slotDestino.c, tipo);
     if(errorZona) return alert(errorZona);
 
-    let flechas = 0, tamano = null, estadistica = null; 
+    let flechas = 0, tamano = null, estadistica = null, cantidad = null; 
     if (tipo === 'carcaj') {
         tamano = document.getElementById('quiver-size').value;
         flechas = parseInt(document.getElementById('quiver-arrows').value) || 0;
@@ -152,6 +152,8 @@ async function guardarItem() {
         if (flechas > max) return alert(`El carcaj ${tamano} solo puede llevar ${max} flechas.`);
     } else if (tipo === 'arma' || tipo === 'armadura') {
         estadistica = document.getElementById('item-stat').value;
+    } else if (tipo === 'general') {
+        cantidad = parseInt(document.getElementById('general-quantity').value) || 1;
     }
 
     const data = {
@@ -164,7 +166,7 @@ async function guardarItem() {
         estadistica: estadistica,
         tamano: tamano,
         flechas: flechas,
-        cantidad: (tipo === 'general') ? 1 : null // NUEVA LÍNEA
+        cantidad: cantidad
     };
 
     try {
@@ -308,9 +310,11 @@ function mostrarCamposEspeciales() {
     const tipo = document.getElementById('item-type').value;
     const contStats = document.getElementById('extra-stats-container');
     const contQuiver = document.getElementById('quiver-container');
+    const contGeneral = document.getElementById('general-quantity-container');
     
     contStats.style.display = 'none';
     contQuiver.style.display = 'none';
+    if(contGeneral) contGeneral.style.display = 'none';
 
     if (tipo === 'arma') {
         contStats.style.display = 'block';
@@ -320,6 +324,8 @@ function mostrarCamposEspeciales() {
         document.getElementById('extra-stat-label').innerText = 'Clase de Armadura (CA):';
     } else if (tipo === 'carcaj') {
         contQuiver.style.display = 'block';
+    } else if (tipo === 'general') {
+        if(contGeneral) contGeneral.style.display = 'block';
     }
 }
 
@@ -332,6 +338,7 @@ function abrirModal(r, c) {
     document.getElementById('item-stat').value = '';
     document.getElementById('quiver-size').value = 'chico';
     document.getElementById('quiver-arrows').value = '0';
+    if(document.getElementById('general-quantity')) document.getElementById('general-quantity').value = '1';
     mostrarCamposEspeciales(); 
     document.getElementById('add-modal').style.display = 'block';
 }
@@ -418,7 +425,8 @@ function abrirModalEdicion() {
         contStats.style.display = 'none';
     }
     
-    cerrarInspectModal();
+    // ERROR CORREGIDO: Ocultamos el modal a mano en lugar de llamar a cerrarInspectModal()
+    document.getElementById('inspect-modal').style.display = 'none';
     document.getElementById('edit-modal').style.display = 'block';
 }
 
@@ -466,6 +474,7 @@ window.abrirInspectModal = abrirInspectModal;
 window.cerrarInspectModal = cerrarInspectModal;
 window.eliminarItemSeleccionado = eliminarItemSeleccionado;
 window.cambiarFlechas = cambiarFlechas;
+window.cambiarCantidad = cambiarCantidad;
 
 window.iniciarSesion = iniciarSesion;
 window.cerrarSesion = cerrarSesion;
