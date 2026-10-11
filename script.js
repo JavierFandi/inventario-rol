@@ -123,6 +123,8 @@ async function cargarInventario() {
         let textoExtra = "";
         if(item.tipo === 'carcaj') textoExtra = `<br><span style="color:#ff0">${item.flechas} fl.</span>`;
         if(item.estadistica) textoExtra = `<br><span style="color:#d4a373">[${item.estadistica}]</span>`;
+        // NUEVO: Si es general y hay más de 1, muestra el (x2), (x5), etc.
+        if(item.tipo === 'general' && (item.cantidad || 1) > 1) textoExtra = `<br><span style="color:#fff">(x${item.cantidad})</span>`;
         
         div.innerHTML = `${item.nombre} ${textoExtra}`;
         div.style.gridRow = `${item.r} / span ${item.h}`;
@@ -161,7 +163,8 @@ async function guardarItem() {
         c: slotDestino.c,
         estadistica: estadistica,
         tamano: tamano,
-        flechas: flechas
+        flechas: flechas,
+        cantidad: (tipo === 'general') ? 1 : null // NUEVA LÍNEA
     };
 
     try {
@@ -360,12 +363,95 @@ function abrirInspectModal(item) {
         document.getElementById('inspect-max-arrows').innerText = (item.tamano === 'chico') ? 10 : (item.tamano === 'mediano') ? 20 : 50;
     } else quiverBox.style.display = 'none';
 
+    // NUEVO: Control de caja para Cantidad General
+    const generalBox = document.getElementById('inspect-general-box');
+    if (item.tipo === 'general') {
+        generalBox.style.display = 'block';
+        document.getElementById('inspect-cantidad').innerText = item.cantidad || 1;
+    } else {
+        generalBox.style.display = 'none';
+    }
+
     document.getElementById('inspect-modal').style.display = 'block';
 }
 
 function cerrarInspectModal() {
     document.getElementById('inspect-modal').style.display = 'none';
     itemSeleccionadoParaEdicion = null;
+}
+
+// --- NUEVO: SISTEMA DE CANTIDADES Y EDICIÓN ---
+
+async function cambiarCantidad(cambio) {
+    let item = itemSeleccionadoParaEdicion;
+    if (item.tipo !== 'general') return;
+    
+    // Calcula la nueva cantidad asegurando que ítems viejos empiecen en 1
+    let nuevaCantidad = (item.cantidad || 1) + cambio;
+    if (nuevaCantidad < 1) return; // No permitimos bajar de 1. Para 0, se usa "Eliminar"
+    
+    item.cantidad = nuevaCantidad;
+    document.getElementById('inspect-cantidad').innerText = nuevaCantidad;
+
+    try {
+        await updateDoc(doc(db, "inventario", item.id), { cantidad: nuevaCantidad });
+        cargarInventario(); 
+    } catch (error) {
+        alert("Error actualizando cantidad: " + error.message);
+    }
+}
+
+function abrirModalEdicion() {
+    if (!itemSeleccionadoParaEdicion) return;
+    let item = itemSeleccionadoParaEdicion;
+    
+    document.getElementById('edit-item-name').value = item.nombre;
+    document.getElementById('edit-item-w').value = item.w;
+    document.getElementById('edit-item-h').value = item.h;
+    
+    const contStats = document.getElementById('edit-extra-stats-container');
+    if (item.tipo === 'arma' || item.tipo === 'armadura') {
+        contStats.style.display = 'block';
+        document.getElementById('edit-extra-stat-label').innerText = item.tipo === 'arma' ? 'Daño del Arma:' : 'Clase de Armadura (CA):';
+        document.getElementById('edit-item-stat').value = item.estadistica || '';
+    } else {
+        contStats.style.display = 'none';
+    }
+    
+    cerrarInspectModal();
+    document.getElementById('edit-modal').style.display = 'block';
+}
+
+function cerrarModalEdicion() {
+    document.getElementById('edit-modal').style.display = 'none';
+}
+
+async function guardarEdicion() {
+    let item = itemSeleccionadoParaEdicion;
+    if (!item) return;
+    
+    let nuevoNombre = document.getElementById('edit-item-name').value;
+    let nuevoW = parseInt(document.getElementById('edit-item-w').value);
+    let nuevoH = parseInt(document.getElementById('edit-item-h').value);
+    
+    let nuevaEstadistica = item.estadistica;
+    if (item.tipo === 'arma' || item.tipo === 'armadura') {
+        nuevaEstadistica = document.getElementById('edit-item-stat').value;
+    }
+
+    try {
+        // Actualizamos solo los datos visuales en la nube, el tipo y la posición se mantienen
+        await updateDoc(doc(db, "inventario", item.id), { 
+            nombre: nuevoNombre,
+            w: nuevoW,
+            h: nuevoH,
+            estadistica: nuevaEstadistica
+        });
+        cerrarModalEdicion();
+        cargarInventario(); 
+    } catch (error) {
+        alert("Error al actualizar: " + error.message);
+    }
 }
 
 // 5. Exponer las funciones a la ventana global (necesario por usar type="module")
@@ -387,3 +473,8 @@ window.cerrarSesion = cerrarSesion;
 window.abrirModalFichas = abrirModalFichas;
 window.cerrarModalFichas = cerrarModalFichas;
 window.procesarFichas = procesarFichas;
+
+window.cambiarCantidad = cambiarCantidad;
+window.abrirModalEdicion = abrirModalEdicion;
+window.cerrarModalEdicion = cerrarModalEdicion;
+window.guardarEdicion = guardarEdicion;
