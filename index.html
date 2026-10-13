@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Inventario RPG</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="script.js"></script>
+</head>
+<body>
+    <div class="inventory-container">
+        <!-- NUEVO: Barra de Autenticación -->
+        <div id="auth-bar" class="auth-bar">
+            <span id="user-info" class="user-info" style="display:none;"></span>
+            <button id="login-btn" class="btn btn-primary" onclick="iniciarSesion()">Iniciar Sesión con Google</button>
+            <button id="logout-btn" class="btn btn-danger" onclick="cerrarSesion()" style="display:none;">Cerrar Sesión</button>
+        </div>
+
+        <div class="grid" id="inventory-grid"></div>
+        
+        <!-- Barra de monedas ACTUALIZADA -->
+        <div class="coins-bar">
+            <div class="coin-box box-gold" onclick="abrirModalMonedas()">Oro: <span id="val-oro">0</span></div>
+            <div class="coin-box box-silver" onclick="abrirModalMonedas()">Plata: <span id="val-plata">0</span></div>
+            <div class="coin-box box-bronze" onclick="abrirModalMonedas()">Bronce: <span id="val-bronce">0</span></div>
+        </div>
+
+        <!-- Barra de Fichas (Preparada para agregar más en el futuro) -->
+        <div class="tokens-bar">
+            <div class="token-box" onclick="abrirModalFichas()">
+                Fichas: <span id="val-fichas-Avar">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-modal" class="modal" style="display:none;">
+        <h3 class="modal-title">Agregar Ítem</h3>
+        
+        <div class="field">
+            <label>Nombre:</label>
+            <input type="text" id="item-name">
+        </div>
+
+        <div class="field">
+            <label>Tipo:</label>
+            <select id="item-type" onchange="mostrarCamposEspeciales()">
+                <option value="general">General (Zona Roja)</option>
+                <option value="arma">Arma (Zona Verde)</option>
+                <option value="armadura">Armadura (Zona Celeste)</option>
+                <option value="carcaj">Carcaj (Zona Verde)</option> <!-- Cambio aquí -->
+            </select>
+        </div>
+
+        <div id="extra-stats-container" class="panel" style="display:none;">
+            <label id="extra-stat-label">Estadística:</label>
+            <input type="text" id="item-stat">
+        </div>
+
+        <!-- CONTENEDOR ESPECIAL PARA EL CARCAJ -->
+        <div id="quiver-container" class="panel" style="display:none;">
+            <label>Tamaño del Carcaj:</label>
+            <select id="quiver-size">
+                <option value="chico">Chico (Máx 10 flechas)</option>
+                <option value="mediano">Mediano (Máx 20 flechas)</option>
+                <option value="grande">Grande (Máx 50 flechas)</option>
+            </select>
+            <label>Flechas actuales:</label>
+            <input type="number" id="quiver-arrows" value="0" min="0">
+        </div>
+
+        <!-- NUEVO: CONTENEDOR ESPECIAL PARA CANTIDADES GENERALES -->
+        <div id="general-quantity-container" class="panel">
+            <label>Cantidad Inicial:</label>
+            <input type="number" id="general-quantity" value="1" min="1">
+        </div>
+
+        <div class="field-row">
+            <div class="field"><label>Ancho:</label><input type="number" id="item-w" value="1" min="1"></div>
+            <div class="field"><label>Alto:</label><input type="number" id="item-h" value="1" min="1"></div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-muted" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="guardarItem()">Guardar</button>
+        </div>
+    </div>
+
+    <!-- MODAL DE INSPECCIÓN/EDICIÓN ACTUALIZADO -->
+    <div id="inspect-modal" class="modal" style="display:none;">
+        <h3 id="inspect-name" class="modal-title">Nombre Ítem</h3>
+        <p id="inspect-type" class="item-type-tag">TIPO</p>
+        
+        <div id="inspect-stat-box" class="inspect-stat" style="display:none;">
+            <span id="inspect-stat"></span>
+        </div>
+
+        <!-- Flechas (Solo para Carcaj) -->
+        <div id="inspect-quiver-box" class="inspect-section" style="display:none;">
+            <label class="section-label">Gestión de Flechas:</label>
+            <div class="stepper">
+                <button class="btn btn-danger btn-sm" onclick="cambiarFlechas(-1)">-1</button>
+                <span id="inspect-arrows" class="stepper-value">0</span> / <span id="inspect-max-arrows">0</span>
+                <button class="btn btn-primary btn-sm" onclick="cambiarFlechas(1)">+1</button>
+            </div>
+        </div>
+
+        <!-- Cantidad (Solo para objetos Generales) -->
+        <div id="inspect-general-box" class="inspect-section" style="display:none;">
+            <label class="section-label">Cantidad Apilada:</label>
+            <div class="stepper">
+                <button class="btn btn-danger btn-sm" onclick="cambiarCantidad(-1)">-1</button>
+                <span id="inspect-cantidad" class="stepper-value">1</span>
+                <button class="btn btn-primary btn-sm" onclick="cambiarCantidad(1)">+1</button>
+            </div>
+        </div>
+
+        <div class="modal-actions modal-actions--spread">
+            <button class="btn btn-muted" onclick="cerrarInspectModal()">Cerrar</button>
+            <button class="btn btn-edit" onclick="abrirModalEdicion()">Editar</button>
+            <button class="btn btn-danger" onclick="eliminarItemSeleccionado()">Eliminar</button>
+        </div>
+    </div>
+
+    <!-- NUEVO: MODAL PARA EDITAR PROPIEDADES -->
+    <div id="edit-modal" class="modal" style="display:none;">
+        <h3 class="modal-title">Editar Ítem</h3>
+        
+        <div class="field">
+            <label>Nombre:</label>
+            <input type="text" id="edit-item-name">
+        </div>
+
+        <div id="edit-extra-stats-container" class="panel" style="display:none;">
+            <label id="edit-extra-stat-label">Estadística:</label>
+            <input type="text" id="edit-item-stat">
+        </div>
+
+        <div class="field-row">
+            <div class="field"><label>Ancho:</label><input type="number" id="edit-item-w" min="1"></div>
+            <div class="field"><label>Alto:</label><input type="number" id="edit-item-h" min="1"></div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-muted" onclick="cerrarModalEdicion()">Cancelar</button>
+            <button class="btn btn-primary" onclick="guardarEdicion()">Guardar</button>
+        </div>
+    </div>
+
+    <!-- NUEVO Modal para Modificar Monedas -->
+    <div id="coin-modal" class="modal" style="display:none;">
+        
+        <h3 class="modal-title">Gestión de Billetera</h3>
+        <p class="modal-hint">Ingresa las cantidades y elige si quieres sumarlas o restarlas.</p>
+        
+        <div class="coin-fields">
+            <div class="coin-field coin-field--gold">
+                <label for="input-gold">Oro</label>
+                <input type="number" id="input-gold" value="0" min="0">
+            </div>
+            <div class="coin-field coin-field--silver">
+                <label for="input-silver">Plata</label>
+                <input type="number" id="input-silver" value="0" min="0">
+            </div>
+            <div class="coin-field coin-field--bronze">
+                <label for="input-bronze">Bronce</label>
+                <input type="number" id="input-bronze" value="0" min="0">
+            </div>
+        </div>
+
+        <div class="modal-actions modal-actions--spread">
+            <button class="btn btn-muted" onclick="cerrarModalMonedas()">Cancelar</button>
+            <button class="btn btn-danger" onclick="procesarMonedas('restar')">Quitar (-)</button>
+            <button class="btn btn-primary" onclick="procesarMonedas('sumar')">Agregar (+)</button>
+        </div>
+    </div>
+
+    <!-- NUEVO Modal para Modificar Fichas -->
+    <div id="token-modal" class="modal" style="display:none;">
+        <h3 class="modal-title">Gestión de Fichas</h3>
+        
+        <div class="field token-field">
+            <label for="input-fichas-Avar">Fichas Avar</label>
+            <input type="number" id="input-fichas-Avar" value="0" min="0">
+        </div>
+
+        <div class="modal-actions modal-actions--spread">
+            <button class="btn btn-muted" onclick="cerrarModalFichas()">Cancelar</button>
+            <button class="btn btn-danger" onclick="procesarFichas('restar')">Quitar (-)</button>
+            <button class="btn btn-primary" onclick="procesarFichas('sumar')">Agregar (+)</button>
+        </div>
+    </div>
+</body>
+</html>
