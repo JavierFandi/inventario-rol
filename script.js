@@ -1,10 +1,9 @@
 // 1. Importar librerías de Firebase directamente (CDN)
-// 1. Importar librerías de Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
-// 2. PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE (Reemplaza este bloque)
+// 2. Configuración de Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyC1KwQiYN7B1Ej35AzmqkqdHuyPju1dTzs",
   authDomain: "inventario-rpg-7f98a.firebaseapp.com",
@@ -28,7 +27,7 @@ let slotDestino = { r: 1, c: 1 };
 let totalBronceActual = 0;
 let itemSeleccionadoParaEdicion = null;
 let fichasActuales = { Avar: 0 }; // Objeto preparado para más tipos de fichas
-let listaItemsActuales = [];
+let listaItemsActuales = []; // Memoria local para validar colisiones y actualizar el DOM
 
 // --- SISTEMA DE USUARIOS ---
 onAuthStateChanged(auth, async (user) => {
@@ -36,25 +35,24 @@ onAuthStateChanged(auth, async (user) => {
     const logoutBtn = document.getElementById('logout-btn');
     const userInfo = document.getElementById('user-info');
 
-    dibujarCuadriculaFondo(); 
+    dibujarCuadriculaFondo();
 
     if (user) {
-        // Usuario logueado normal (sin lista blanca)
         loginBtn.style.display = 'none';
         logoutBtn.style.display = 'inline-block';
         userInfo.style.display = 'inline-block';
-        userInfo.innerText = `Jugador: ${user.displayName}`;
-        
+        userInfo.textContent = `Jugador: ${user.displayName}`;
+
         await cargarMonedas();
         await cargarInventario();
-        await cargarFichas(); // <--- NUEVO
+        await cargarFichas();
     } else {
         loginBtn.style.display = 'inline-block';
         logoutBtn.style.display = 'none';
         userInfo.style.display = 'none';
-        
+
         document.querySelectorAll('.item').forEach(e => e.remove());
-        listaItemsActuales = []; // <--- LIMPIAR MEMORIA AL SALIR
+        listaItemsActuales = [];
         totalBronceActual = 0;
         fichasActuales = { Avar: 0 };
         actualizarUIMonedas();
@@ -78,9 +76,11 @@ async function cerrarSesion() {
     }
 }
 
+// --- CUADRÍCULA Y VALIDACIONES ---
+
 function dibujarCuadriculaFondo() {
     const grid = document.getElementById('inventory-grid');
-    grid.innerHTML = ''; 
+    grid.innerHTML = '';
     for (let r = 1; r <= ROWS; r++) {
         for (let c = 1; c <= COLS; c++) {
             let slot = document.createElement('div');
@@ -107,417 +107,18 @@ function validarColorZona(r, c, tipo) {
     return null;
 }
 
-// --- CONEXIÓN FIREBASE: INVENTARIO ---
-
-async function cargarInventario() {
-    const querySnapshot = await getDocs(collection(db, "inventario"));
-    
-    document.querySelectorAll('.item').forEach(e => e.remove());
-    const grid = document.getElementById('inventory-grid');
-    listaItemsActuales = []; 
-    
-    querySnapshot.forEach((documento) => {
-        let item = documento.data();
-        item.id = documento.id; 
-        listaItemsActuales.push(item); 
-        
-        let div = document.createElement('div');
-        div.className = 'item';
-        div.dataset.id = item.id; // <--- CLAVE: Le asignamos su ID al elemento HTML
-        
-        div.onclick = (e) => {
-            e.stopPropagation(); 
-            abrirInspectModal(item);
-        };
-        
-        grid.appendChild(div);
-        
-        // Pintamos su texto y tamaño usando la nueva función
-        actualizarItemEnDOM(item); 
-    });
-}
-
-function actualizarItemEnDOM(item) {
-    // 1. Buscamos en la cuadrícula únicamente el div de este ítem por su ID
-    const div = document.querySelector(`.item[data-id="${item.id}"]`);
-    if (!div) return;
-
-    // 2. Escribimos el nombre de forma segura (esto limpia también el contenido anterior del div)
-    div.textContent = item.nombre;
-
-    // 3. Calculamos si debe mostrar flechas, estadística o cantidad apilada
-    let textoExtra = "";
-    if (item.tipo === 'carcaj') {
-        textoExtra = `${item.flechas} fl.`;
-    } else if (item.estadistica) {
-        textoExtra = `[${item.estadistica}]`;
-    } else if (item.tipo === 'general' && (item.cantidad || 1) > 1) {
-        textoExtra = `(x${item.cantidad})`;
-    }
-
-    // 4. Si tiene texto extra, creamos el <span> que tu CSS estiliza en dorado
-    if (textoExtra) {
-        const span = document.createElement('span');
-        span.textContent = textoExtra;
-        div.appendChild(span);
-    }
-
-    // 5. Actualizamos su posición y tamaño (útil si cambiaste ancho o alto al editar)
-    div.style.gridRow = `${item.r} / span ${item.h}`;
-    div.style.gridColumn = `${item.c} / span ${item.w}`;
-}
-
-async function guardarItem() {
-    const tipo = document.getElementById('item-type').value;
-    const w = parseInt(document.getElementById('item-w').value);
-    const h = parseInt(document.getElementById('item-h').value);
-
-    // Reemplaza a validarColorZona: revisa límites, colores de todas las celdas y colisiones
-    let error = validarEspacioCompleto(slotDestino.r, slotDestino.c, w, h, tipo);
-    if (error) return alert(error);
-
-    let flechas = 0, tamano = null, estadistica = null, cantidad = null; 
-    if (tipo === 'carcaj') {
-        tamano = document.getElementById('quiver-size').value;
-        flechas = parseInt(document.getElementById('quiver-arrows').value) || 0;
-        let max = (tamano === 'chico') ? 10 : (tamano === 'mediano') ? 20 : 50;
-        if (flechas > max) return alert(`El carcaj ${tamano} solo puede llevar ${max} flechas.`);
-    } else if (tipo === 'arma' || tipo === 'armadura') {
-        estadistica = document.getElementById('item-stat').value;
-    } else if (tipo === 'general') {
-        cantidad = parseInt(document.getElementById('general-quantity').value) || 1;
-    }
-
-    const data = {
-        nombre: document.getElementById('item-name').value || "Objeto Desconocido",
-        tipo: tipo,
-        w: parseInt(document.getElementById('item-w').value),
-        h: parseInt(document.getElementById('item-h').value),
-        r: slotDestino.r,
-        c: slotDestino.c,
-        estadistica: estadistica,
-        tamano: tamano,
-        flechas: flechas,
-        cantidad: cantidad
-    };
-
-    try {
-        await addDoc(collection(db, "inventario"), data);
-        cerrarModal();
-        cargarInventario(); 
-    } catch (error) {
-        alert("Error de guardado en la nube: " + error.message);
-    }
-}
-
-async function eliminarItemSeleccionado() {
-    if (!confirm(`¿Seguro que quieres eliminar ${itemSeleccionadoParaEdicion.nombre}?`)) return;
-    try {
-        await deleteDoc(doc(db, "inventario", itemSeleccionadoParaEdicion.id));
-        cerrarInspectModal();
-        cargarInventario();
-    } catch (error) {
-        alert("Error al eliminar: " + error.message);
-    }
-}
-
-async function cambiarFlechas(cantidad) {
-    let item = itemSeleccionadoParaEdicion;
-    let max = (item.tamano === 'chico') ? 10 : (item.tamano === 'mediano') ? 20 : 50;
-    let nuevasFlechas = item.flechas + cantidad;
-    if (nuevasFlechas < 0 || nuevasFlechas > max) return; 
-    
-    item.flechas = nuevasFlechas;
-    document.getElementById('inspect-arrows').textContent = nuevasFlechas;
-
-    try {
-        await updateDoc(doc(db, "inventario", item.id), { flechas: nuevasFlechas });
-        actualizarItemEnDOM(item); // <--- Reemplaza a cargarInventario()
-    } catch (error) {
-        alert("Error actualizando flechas: " + error.message);
-    }
-}
-
-// --- CONEXIÓN FIREBASE: MONEDAS ---
-
-async function cargarMonedas() {
-    const docRef = doc(db, "config", "billetera");
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-        totalBronceActual = docSnap.data().total_bronce;
-    } else {
-        await setDoc(docRef, { total_bronce: 4300 }); // Crea la billetera si no existe
-        totalBronceActual = 4300;
-    }
-    actualizarUIMonedas();
-}
-
-async function procesarMonedas(operacion) {
-    let oro = parseInt(document.getElementById('input-gold').value) || 0;
-    let plata = parseInt(document.getElementById('input-silver').value) || 0;
-    let bronce = parseInt(document.getElementById('input-bronze').value) || 0;
-
-    if (oro < 0 || plata < 0 || bronce < 0) return alert("Ingresa números positivos.");
-    
-    let totalConvertido = (oro * 100) + (plata * 10) + bronce;
-    if (totalConvertido === 0) return cerrarModalMonedas();
-
-    if (operacion === 'sumar'){
-        const delta = totalConvertido;
-    } 
-    else if (operacion === 'restar') {
-        if (totalConvertido > totalBronceActual) return alert("Fondos insuficientes.");
-        const delta = -totalConvertido;
-    }
-
-    try {
-        await updateDoc(doc(db, "config", "billetera"), { total_bronce: increment(delta) });
-        actualizarUIMonedas();
-        cerrarModalMonedas();
-    } catch (e) {
-        alert("Error al guardar monedas: " + e.message);
-    }
-}
-
-function actualizarUIMonedas() {
-    document.getElementById('val-oro').innerText = Math.floor(totalBronceActual / 100);
-    document.getElementById('val-plata').innerText = Math.floor((totalBronceActual % 100) / 10);
-    document.getElementById('val-bronce').innerText = totalBronceActual % 10;
-}
-
-// --- CONEXIÓN FIREBASE: FICHAS ---
-
-async function cargarFichas() {
-    const docRef = doc(db, "config", "fichas");
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-        fichasActuales = docSnap.data();
-        if (fichasActuales.Avar === undefined) fichasActuales.Avar = 0;
-    } else {
-        await setDoc(docRef, { Avar: 0 }); // Crea el documento de fichas
-        fichasActuales = { Avar: 0 };
-    }
-    actualizarUIFichas();
-}
-
-async function procesarFichas(operacion) {
-    let cantidad = parseInt(document.getElementById('input-fichas-Avar').value) || 0;
-
-    if (cantidad < 0) return alert("Ingresa números positivos.");
-    if (cantidad === 0) return cerrarModalFichas();
-
-    if (operacion === 'sumar') {
-        fichasActuales.Avar += cantidad;
-    } else if (operacion === 'restar') {
-        if (cantidad > fichasActuales.Avar) return alert("Fichas insuficientes.");
-        fichasActuales.Avar -= cantidad;
-    }
-
-    try {
-        await updateDoc(doc(db, "config", "fichas"), { Avar: fichasActuales.Avar });
-        actualizarUIFichas();
-        cerrarModalFichas();
-    } catch (e) {
-        alert("Error al guardar fichas: " + e.message);
-    }
-}
-
-function actualizarUIFichas() {
-    document.getElementById('val-fichas-Avar').innerText = fichasActuales.Avar;
-}
-
-// LÓGICA DE INTERFAZ FICHAS
-function abrirModalFichas() {
-    document.getElementById('input-fichas-Avar').value = '0';
-    document.getElementById('token-modal').style.display = 'block';
-}
-
-function cerrarModalFichas() { 
-    document.getElementById('token-modal').style.display = 'none'; 
-}
-
-// --- LÓGICA DE INTERFAZ (MODALES) ---
-
-function mostrarCamposEspeciales() {
-    const tipo = document.getElementById('item-type').value;
-    const contStats = document.getElementById('extra-stats-container');
-    const contQuiver = document.getElementById('quiver-container');
-    const contGeneral = document.getElementById('general-quantity-container');
-    
-    contStats.style.display = 'none';
-    contQuiver.style.display = 'none';
-    if(contGeneral) contGeneral.style.display = 'none';
-
-    if (tipo === 'arma') {
-        contStats.style.display = 'block';
-        document.getElementById('extra-stat-label').innerText = 'Daño del Arma:';
-    } else if (tipo === 'armadura') {
-        contStats.style.display = 'block';
-        document.getElementById('extra-stat-label').innerText = 'Clase de Armadura (CA):';
-    } else if (tipo === 'carcaj') {
-        contQuiver.style.display = 'block';
-    } else if (tipo === 'general') {
-        if(contGeneral) contGeneral.style.display = 'block';
-    }
-}
-
-function abrirModal(r, c) {
-    slotDestino = { r, c };
-    document.getElementById('item-name').value = '';
-    document.getElementById('item-type').value = 'general';
-    document.getElementById('item-w').value = '1';
-    document.getElementById('item-h').value = '1';
-    document.getElementById('item-stat').value = '';
-    document.getElementById('quiver-size').value = 'chico';
-    document.getElementById('quiver-arrows').value = '0';
-    if(document.getElementById('general-quantity')) document.getElementById('general-quantity').value = '1';
-    mostrarCamposEspeciales(); 
-    document.getElementById('add-modal').style.display = 'block';
-}
-
-function cerrarModal() { document.getElementById('add-modal').style.display = 'none'; }
-function abrirModalMonedas() {
-    document.getElementById('input-gold').value = '0';
-    document.getElementById('input-silver').value = '0';
-    document.getElementById('input-bronze').value = '0';
-    document.getElementById('coin-modal').style.display = 'block';
-}
-function cerrarModalMonedas() { document.getElementById('coin-modal').style.display = 'none'; }
-
-function abrirInspectModal(item) {
-    itemSeleccionadoParaEdicion = item;
-    document.getElementById('inspect-name').innerText = item.nombre;
-    document.getElementById('inspect-type').innerText = item.tipo;
-    
-    const statBox = document.getElementById('inspect-stat-box');
-    if (item.estadistica) {
-        statBox.style.display = 'block';
-        document.getElementById('inspect-stat').innerText = item.estadistica;
-    } else statBox.style.display = 'none';
-
-    const quiverBox = document.getElementById('inspect-quiver-box');
-    if (item.tipo === 'carcaj') {
-        quiverBox.style.display = 'block';
-        document.getElementById('inspect-arrows').innerText = item.flechas;
-        document.getElementById('inspect-max-arrows').innerText = (item.tamano === 'chico') ? 10 : (item.tamano === 'mediano') ? 20 : 50;
-    } else quiverBox.style.display = 'none';
-
-    // NUEVO: Control de caja para Cantidad General
-    const generalBox = document.getElementById('inspect-general-box');
-    if (item.tipo === 'general') {
-        generalBox.style.display = 'block';
-        document.getElementById('inspect-cantidad').innerText = item.cantidad || 1;
-    } else {
-        generalBox.style.display = 'none';
-    }
-
-    document.getElementById('inspect-modal').style.display = 'block';
-}
-
-function cerrarInspectModal() {
-    document.getElementById('inspect-modal').style.display = 'none';
-    itemSeleccionadoParaEdicion = null;
-}
-
-// --- NUEVO: SISTEMA DE CANTIDADES Y EDICIÓN ---
-
-async function cambiarCantidad(cambio) {
-    let item = itemSeleccionadoParaEdicion;
-    if (item.tipo !== 'general') return;
-    
-    let nuevaCantidad = (item.cantidad || 1) + cambio;
-    if (nuevaCantidad < 1) return; 
-    
-    item.cantidad = nuevaCantidad;
-    document.getElementById('inspect-cantidad').textContent = nuevaCantidad;
-
-    try {
-        await updateDoc(doc(db, "inventario", item.id), { cantidad: nuevaCantidad });
-        actualizarItemEnDOM(item); // <--- Reemplaza a cargarInventario()
-    } catch (error) {
-        alert("Error actualizando cantidad: " + error.message);
-    }
-}
-
-function abrirModalEdicion() {
-    if (!itemSeleccionadoParaEdicion) return;
-    let item = itemSeleccionadoParaEdicion;
-    
-    document.getElementById('edit-item-name').value = item.nombre;
-    document.getElementById('edit-item-w').value = item.w;
-    document.getElementById('edit-item-h').value = item.h;
-    
-    const contStats = document.getElementById('edit-extra-stats-container');
-    if (item.tipo === 'arma' || item.tipo === 'armadura') {
-        contStats.style.display = 'block';
-        document.getElementById('edit-extra-stat-label').innerText = item.tipo === 'arma' ? 'Daño del Arma:' : 'Clase de Armadura (CA):';
-        document.getElementById('edit-item-stat').value = item.estadistica || '';
-    } else {
-        contStats.style.display = 'none';
-    }
-    
-    // ERROR CORREGIDO: Ocultamos el modal a mano en lugar de llamar a cerrarInspectModal()
-    document.getElementById('inspect-modal').style.display = 'none';
-    document.getElementById('edit-modal').style.display = 'block';
-}
-
-function cerrarModalEdicion() {
-    document.getElementById('edit-modal').style.display = 'none';
-}
-
-async function guardarEdicion() {
-    let item = itemSeleccionadoParaEdicion;
-    if (!item) return;
-    
-    let nuevoNombre = document.getElementById('edit-item-name').value.trim() || "Objeto Desconocido";
-    let nuevoW = parseInt(document.getElementById('edit-item-w').value);
-    let nuevoH = parseInt(document.getElementById('edit-item-h').value);
-    
-    // Si ya agregaste la validación de espacio completo, va aquí:
-    let error = validarEspacioCompleto(item.r, item.c, nuevoW, nuevoH, item.tipo, item.id);
-    if (error) return alert(error);
-
-    let nuevaEstadistica = item.estadistica;
-    if (item.tipo === 'arma' || item.tipo === 'armadura') {
-        nuevaEstadistica = document.getElementById('edit-item-stat').value;
-    }
-
-    try {
-        await updateDoc(doc(db, "inventario", item.id), { 
-            nombre: nuevoNombre,
-            w: nuevoW,
-            h: nuevoH,
-            estadistica: nuevaEstadistica
-        });
-
-        // Actualizamos el objeto en la memoria local
-        item.nombre = nuevoNombre;
-        item.w = nuevoW;
-        item.h = nuevoH;
-        item.estadistica = nuevaEstadistica;
-
-        // Actualizamos solo este ítem en la cuadrícula y cerramos el modal
-        actualizarItemEnDOM(item); // <--- Reemplaza a cargarInventario()
-        cerrarModalEdicion();
-    } catch (error) {
-        alert("Error al actualizar: " + error.message);
-    }
-}
-
 function validarEspacioCompleto(r, c, w, h, tipo, idIgnorar = null) {
-    // 1. Validar que sean enteros positivos
+    // 1. Validar que ancho y alto sean enteros válidos
     if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1) {
         return "El ancho y el alto deben ser números enteros mayores o iguales a 1.";
     }
 
-    // 2. Validar que no se salga de la cuadrícula (8x9)
+    // 2. Validar que el ítem no se salga de los bordes de la cuadrícula (8x9)
     if (r + h - 1 > ROWS || c + w - 1 > COLS) {
         return "El ítem se sale de los límites del inventario.";
     }
 
-    // 3. Validar que TODAS las casillas que ocupa pertenezcan a la zona correcta
+    // 3. Validar que TODAS las casillas que ocupa correspondan a su zona de color
     for (let fila = r; fila < r + h; fila++) {
         for (let col = c; col < c + w; col++) {
             let errorZona = validarColorZona(fila, col, tipo);
@@ -537,8 +138,413 @@ function validarEspacioCompleto(r, c, w, h, tipo, idIgnorar = null) {
         }
     }
 
-    return null; // Todo válido
+    return null; // Espacio válido y libre
 }
+
+// --- CONEXIÓN FIREBASE: INVENTARIO ---
+
+function actualizarItemEnDOM(item) {
+    const div = document.querySelector(`.item[data-id="${item.id}"]`);
+    if (!div) return;
+
+    // Seguro contra inyección HTML (XSS)
+    div.textContent = item.nombre;
+
+    let textoExtra = "";
+    if (item.tipo === 'carcaj') {
+        textoExtra = `${item.flechas} fl.`;
+    } else if (item.estadistica) {
+        textoExtra = `[${item.estadistica}]`;
+    } else if (item.tipo === 'general' && (item.cantidad || 1) > 1) {
+        textoExtra = `(x${item.cantidad})`;
+    }
+
+    if (textoExtra) {
+        const span = document.createElement('span');
+        span.textContent = textoExtra;
+        div.appendChild(span);
+    }
+
+    div.style.gridRow = `${item.r} / span ${item.h}`;
+    div.style.gridColumn = `${item.c} / span ${item.w}`;
+}
+
+async function cargarInventario() {
+    const querySnapshot = await getDocs(collection(db, "inventario"));
+
+    document.querySelectorAll('.item').forEach(e => e.remove());
+    const grid = document.getElementById('inventory-grid');
+    listaItemsActuales = [];
+
+    querySnapshot.forEach((documento) => {
+        let item = documento.data();
+        item.id = documento.id; // Guardamos el ID único de Firebase
+        listaItemsActuales.push(item);
+
+        let div = document.createElement('div');
+        div.className = 'item';
+        div.dataset.id = item.id;
+
+        div.onclick = (e) => {
+            e.stopPropagation();
+            abrirInspectModal(item);
+        };
+
+        grid.appendChild(div);
+        actualizarItemEnDOM(item);
+    });
+}
+
+async function guardarItem() {
+    const tipo = document.getElementById('item-type').value;
+    const w = parseInt(document.getElementById('item-w').value, 10);
+    const h = parseInt(document.getElementById('item-h').value, 10);
+
+    let errorEspacio = validarEspacioCompleto(slotDestino.r, slotDestino.c, w, h, tipo);
+    if (errorEspacio) return alert(errorEspacio);
+
+    let flechas = 0, tamano = null, estadistica = null, cantidad = null;
+    if (tipo === 'carcaj') {
+        tamano = document.getElementById('quiver-size').value;
+        flechas = parseInt(document.getElementById('quiver-arrows').value, 10) || 0;
+        let max = (tamano === 'chico') ? 10 : (tamano === 'mediano') ? 20 : 50;
+        if (flechas < 0 || flechas > max) return alert(`El carcaj ${tamano} solo puede llevar entre 0 y ${max} flechas.`);
+    } else if (tipo === 'arma' || tipo === 'armadura') {
+        estadistica = document.getElementById('item-stat').value.trim();
+    } else if (tipo === 'general') {
+        cantidad = parseInt(document.getElementById('general-quantity').value, 10) || 1;
+        if (cantidad < 1) return alert("La cantidad inicial debe ser al menos 1.");
+    }
+
+    const data = {
+        nombre: document.getElementById('item-name').value.trim() || "Objeto Desconocido",
+        tipo: tipo,
+        w: w,
+        h: h,
+        r: slotDestino.r,
+        c: slotDestino.c,
+        estadistica: estadistica,
+        tamano: tamano,
+        flechas: flechas,
+        cantidad: cantidad
+    };
+
+    try {
+        await addDoc(collection(db, "inventario"), data);
+        cerrarModal();
+        await cargarInventario();
+    } catch (error) {
+        alert("Error de guardado en la nube: " + error.message);
+    }
+}
+
+async function eliminarItemSeleccionado() {
+    if (!itemSeleccionadoParaEdicion) return;
+    if (!confirm(`¿Seguro que quieres eliminar ${itemSeleccionadoParaEdicion.nombre}?`)) return;
+    try {
+        await deleteDoc(doc(db, "inventario", itemSeleccionadoParaEdicion.id));
+        cerrarInspectModal();
+        await cargarInventario();
+    } catch (error) {
+        alert("Error al eliminar: " + error.message);
+    }
+}
+
+async function cambiarFlechas(cantidad) {
+    let item = itemSeleccionadoParaEdicion;
+    if (!item || item.tipo !== 'carcaj') return;
+
+    let max = (item.tamano === 'chico') ? 10 : (item.tamano === 'mediano') ? 20 : 50;
+    let nuevasFlechas = item.flechas + cantidad;
+    if (nuevasFlechas < 0 || nuevasFlechas > max) return;
+
+    item.flechas = nuevasFlechas;
+    document.getElementById('inspect-arrows').textContent = nuevasFlechas;
+
+    try {
+        await updateDoc(doc(db, "inventario", item.id), { flechas: nuevasFlechas });
+        actualizarItemEnDOM(item);
+    } catch (error) {
+        alert("Error actualizando flechas: " + error.message);
+    }
+}
+
+// --- CONEXIÓN FIREBASE: MONEDAS ---
+
+async function cargarMonedas() {
+    const docRef = doc(db, "config", "billetera");
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+        totalBronceActual = docSnap.data().total_bronce;
+    } else {
+        await setDoc(docRef, { total_bronce: 4300 }); // Crea la billetera si no existe
+        totalBronceActual = 4300;
+    }
+    actualizarUIMonedas();
+}
+
+async function procesarMonedas(operacion) {
+    let oro = parseInt(document.getElementById('input-gold').value, 10) || 0;
+    let plata = parseInt(document.getElementById('input-silver').value, 10) || 0;
+    let bronce = parseInt(document.getElementById('input-bronze').value, 10) || 0;
+
+    if (oro < 0 || plata < 0 || bronce < 0) return alert("Ingresa números positivos.");
+
+    let totalConvertido = (oro * 100) + (plata * 10) + bronce;
+    if (totalConvertido === 0) return cerrarModalMonedas();
+
+    if (operacion === 'restar' && totalConvertido > totalBronceActual) {
+        return alert("Fondos insuficientes.");
+    }
+
+    const delta = (operacion === 'sumar') ? totalConvertido : -totalConvertido;
+
+    try {
+        const docRef = doc(db, "config", "billetera");
+        await updateDoc(docRef, { total_bronce: increment(delta) });
+        totalBronceActual += delta;
+        actualizarUIMonedas();
+        cerrarModalMonedas();
+    } catch (e) {
+        alert("Error al guardar monedas: " + e.message);
+    }
+}
+
+function actualizarUIMonedas() {
+    document.getElementById('val-oro').textContent = Math.floor(totalBronceActual / 100);
+    document.getElementById('val-plata').textContent = Math.floor((totalBronceActual % 100) / 10);
+    document.getElementById('val-bronce').textContent = totalBronceActual % 10;
+}
+
+// --- CONEXIÓN FIREBASE: FICHAS ---
+
+async function cargarFichas() {
+    const docRef = doc(db, "config", "fichas");
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+        fichasActuales = docSnap.data();
+        if (fichasActuales.Avar === undefined) fichasActuales.Avar = 0;
+    } else {
+        await setDoc(docRef, { Avar: 0 }); // Crea el documento de fichas
+        fichasActuales = { Avar: 0 };
+    }
+    actualizarUIFichas();
+}
+
+async function procesarFichas(operacion) {
+    let cantidad = parseInt(document.getElementById('input-fichas-Avar').value, 10) || 0;
+
+    if (cantidad < 0) return alert("Ingresa números positivos.");
+    if (cantidad === 0) return cerrarModalFichas();
+
+    if (operacion === 'restar' && cantidad > fichasActuales.Avar) {
+        return alert("Fichas insuficientes.");
+    }
+
+    const delta = (operacion === 'sumar') ? cantidad : -cantidad;
+
+    try {
+        const docRef = doc(db, "config", "fichas");
+        await updateDoc(docRef, { Avar: increment(delta) });
+        fichasActuales.Avar += delta;
+        actualizarUIFichas();
+        cerrarModalFichas();
+    } catch (e) {
+        alert("Error al guardar fichas: " + e.message);
+    }
+}
+
+function actualizarUIFichas() {
+    document.getElementById('val-fichas-Avar').textContent = fichasActuales.Avar;
+}
+
+// LÓGICA DE INTERFAZ FICHAS
+function abrirModalFichas() {
+    document.getElementById('input-fichas-Avar').value = '0';
+    document.getElementById('token-modal').style.display = 'block';
+}
+
+function cerrarModalFichas() {
+    document.getElementById('token-modal').style.display = 'none';
+}
+
+// --- LÓGICA DE INTERFAZ (MODALES) ---
+
+function mostrarCamposEspeciales() {
+    const tipo = document.getElementById('item-type').value;
+    const contStats = document.getElementById('extra-stats-container');
+    const contQuiver = document.getElementById('quiver-container');
+    const contGeneral = document.getElementById('general-quantity-container');
+
+    contStats.style.display = 'none';
+    contQuiver.style.display = 'none';
+    if (contGeneral) contGeneral.style.display = 'none';
+
+    if (tipo === 'arma') {
+        contStats.style.display = 'block';
+        document.getElementById('extra-stat-label').textContent = 'Daño del Arma:';
+    } else if (tipo === 'armadura') {
+        contStats.style.display = 'block';
+        document.getElementById('extra-stat-label').textContent = 'Clase de Armadura (CA):';
+    } else if (tipo === 'carcaj') {
+        contQuiver.style.display = 'block';
+    } else if (tipo === 'general') {
+        if (contGeneral) contGeneral.style.display = 'block';
+    }
+}
+
+function abrirModal(r, c) {
+    slotDestino = { r, c };
+    document.getElementById('item-name').value = '';
+    document.getElementById('item-type').value = 'general';
+    document.getElementById('item-w').value = '1';
+    document.getElementById('item-h').value = '1';
+    document.getElementById('item-stat').value = '';
+    document.getElementById('quiver-size').value = 'chico';
+    document.getElementById('quiver-arrows').value = '0';
+    if (document.getElementById('general-quantity')) document.getElementById('general-quantity').value = '1';
+    mostrarCamposEspeciales();
+    document.getElementById('add-modal').style.display = 'block';
+}
+
+function cerrarModal() { document.getElementById('add-modal').style.display = 'none'; }
+
+function abrirModalMonedas() {
+    document.getElementById('input-gold').value = '0';
+    document.getElementById('input-silver').value = '0';
+    document.getElementById('input-bronze').value = '0';
+    document.getElementById('coin-modal').style.display = 'block';
+}
+
+function cerrarModalMonedas() { document.getElementById('coin-modal').style.display = 'none'; }
+
+function abrirInspectModal(item) {
+    itemSeleccionadoParaEdicion = item;
+    document.getElementById('inspect-name').textContent = item.nombre;
+    document.getElementById('inspect-type').textContent = item.tipo;
+
+    const statBox = document.getElementById('inspect-stat-box');
+    if (item.estadistica) {
+        statBox.style.display = 'block';
+        document.getElementById('inspect-stat').textContent = item.estadistica;
+    } else {
+        statBox.style.display = 'none';
+    }
+
+    const quiverBox = document.getElementById('inspect-quiver-box');
+    if (item.tipo === 'carcaj') {
+        quiverBox.style.display = 'block';
+        document.getElementById('inspect-arrows').textContent = item.flechas;
+        document.getElementById('inspect-max-arrows').textContent = (item.tamano === 'chico') ? 10 : (item.tamano === 'mediano') ? 20 : 50;
+    } else {
+        quiverBox.style.display = 'none';
+    }
+
+    const generalBox = document.getElementById('inspect-general-box');
+    if (item.tipo === 'general') {
+        generalBox.style.display = 'block';
+        document.getElementById('inspect-cantidad').textContent = item.cantidad || 1;
+    } else {
+        generalBox.style.display = 'none';
+    }
+
+    document.getElementById('inspect-modal').style.display = 'block';
+}
+
+function cerrarInspectModal() {
+    document.getElementById('inspect-modal').style.display = 'none';
+    itemSeleccionadoParaEdicion = null;
+}
+
+// --- SISTEMA DE CANTIDADES Y EDICIÓN ---
+
+async function cambiarCantidad(cambio) {
+    let item = itemSeleccionadoParaEdicion;
+    if (!item || item.tipo !== 'general') return;
+
+    let nuevaCantidad = (item.cantidad || 1) + cambio;
+    if (nuevaCantidad < 1) return; // No permitimos bajar de 1. Para 0, se usa "Eliminar"
+
+    item.cantidad = nuevaCantidad;
+    document.getElementById('inspect-cantidad').textContent = nuevaCantidad;
+
+    try {
+        await updateDoc(doc(db, "inventario", item.id), { cantidad: nuevaCantidad });
+        actualizarItemEnDOM(item);
+    } catch (error) {
+        alert("Error actualizando cantidad: " + error.message);
+    }
+}
+
+function abrirModalEdicion() {
+    if (!itemSeleccionadoParaEdicion) return;
+    let item = itemSeleccionadoParaEdicion;
+
+    document.getElementById('edit-item-name').value = item.nombre;
+    document.getElementById('edit-item-w').value = item.w;
+    document.getElementById('edit-item-h').value = item.h;
+
+    const contStats = document.getElementById('edit-extra-stats-container');
+    if (item.tipo === 'arma' || item.tipo === 'armadura') {
+        contStats.style.display = 'block';
+        document.getElementById('edit-extra-stat-label').textContent = item.tipo === 'arma' ? 'Daño del Arma:' : 'Clase de Armadura (CA):';
+        document.getElementById('edit-item-stat').value = item.estadistica || '';
+    } else {
+        contStats.style.display = 'none';
+    }
+
+    // Ocultamos el modal de inspección sin borrar itemSeleccionadoParaEdicion
+    document.getElementById('inspect-modal').style.display = 'none';
+    document.getElementById('edit-modal').style.display = 'block';
+}
+
+function cerrarModalEdicion() {
+    document.getElementById('edit-modal').style.display = 'none';
+    itemSeleccionadoParaEdicion = null;
+}
+
+async function guardarEdicion() {
+    let item = itemSeleccionadoParaEdicion;
+    if (!item) return;
+
+    let nuevoNombre = document.getElementById('edit-item-name').value.trim() || "Objeto Desconocido";
+    let nuevoW = parseInt(document.getElementById('edit-item-w').value, 10);
+    let nuevoH = parseInt(document.getElementById('edit-item-h').value, 10);
+
+    // Validamos límites, zonas de color y que el nuevo tamaño no pise a otro ítem
+    let errorEspacio = validarEspacioCompleto(item.r, item.c, nuevoW, nuevoH, item.tipo, item.id);
+    if (errorEspacio) return alert(errorEspacio);
+
+    let nuevaEstadistica = item.estadistica;
+    if (item.tipo === 'arma' || item.tipo === 'armadura') {
+        nuevaEstadistica = document.getElementById('edit-item-stat').value.trim();
+    }
+
+    try {
+        await updateDoc(doc(db, "inventario", item.id), {
+            nombre: nuevoNombre,
+            w: nuevoW,
+            h: nuevoH,
+            estadistica: nuevaEstadistica
+        });
+
+        // Actualizamos el objeto en la memoria local
+        item.nombre = nuevoNombre;
+        item.w = nuevoW;
+        item.h = nuevoH;
+        item.estadistica = nuevaEstadistica;
+
+        // Actualizamos únicamente este ítem en el DOM sin recargar todo el tablero
+        actualizarItemEnDOM(item);
+        cerrarModalEdicion();
+    } catch (error) {
+        alert("Error al actualizar: " + error.message);
+    }
+}
+
+// --- CIERRE DE MODALES (TECLA ESCAPE Y CLIC AFUERA) ---
 
 function obtenerModalAbierto() {
     return Array.from(document.querySelectorAll('.modal'))
@@ -553,12 +559,10 @@ function cerrarModalActivo() {
     else modal.style.display = 'none';
 }
 
-// Cerrar con tecla Escape
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') cerrarModalActivo();
 });
 
-// Cerrar al hacer clic fuera del modal (y evitar clics fantasma en la cuadrícula)
 document.addEventListener('pointerdown', (e) => {
     const modal = obtenerModalAbierto();
     if (modal && !modal.contains(e.target)) {
@@ -566,7 +570,7 @@ document.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         cerrarModalActivo();
     }
-}, true); // true = fase de captura, intercepta el clic antes de que llegue al slot
+}, true); // Fase de captura para evitar clics accidentales en la cuadrícula de fondo
 
 // 5. Exponer las funciones a la ventana global (necesario por usar type="module")
 window.abrirModal = abrirModal;
@@ -581,15 +585,11 @@ window.cerrarInspectModal = cerrarInspectModal;
 window.eliminarItemSeleccionado = eliminarItemSeleccionado;
 window.cambiarFlechas = cambiarFlechas;
 window.cambiarCantidad = cambiarCantidad;
-
-window.iniciarSesion = iniciarSesion;
-window.cerrarSesion = cerrarSesion;
-
-window.abrirModalFichas = abrirModalFichas;
-window.cerrarModalFichas = cerrarModalFichas;
-window.procesarFichas = procesarFichas;
-
-window.cambiarCantidad = cambiarCantidad;
 window.abrirModalEdicion = abrirModalEdicion;
 window.cerrarModalEdicion = cerrarModalEdicion;
 window.guardarEdicion = guardarEdicion;
+window.iniciarSesion = iniciarSesion;
+window.cerrarSesion = cerrarSesion;
+window.abrirModalFichas = abrirModalFichas;
+window.cerrarModalFichas = cerrarModalFichas;
+window.procesarFichas = procesarFichas;
