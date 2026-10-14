@@ -255,8 +255,8 @@ async function cargarInventario() {
 
 async function guardarItem() {
     const tipo = document.getElementById('item-type').value;
-    const w = parseInt(document.getElementById('item-w').value, 10);
-    const h = parseInt(document.getElementById('item-h').value, 10);
+    const w = (tipo === 'carcaj') ? 2 : parseInt(document.getElementById('item-w').value, 10);
+    const h = (tipo === 'carcaj') ? 1 : parseInt(document.getElementById('item-h').value, 10);
 
     let errorEspacio = validarEspacioCompleto(slotDestino.r, slotDestino.c, w, h, tipo);
     if (errorEspacio) return mostrarAlerta(errorEspacio, "Ubicación Inválida");
@@ -444,10 +444,16 @@ function mostrarCamposEspeciales() {
     const contStats = document.getElementById('extra-stats-container');
     const contQuiver = document.getElementById('quiver-container');
     const contGeneral = document.getElementById('general-quantity-container');
+    const inputW = document.getElementById('item-w');
+    const inputH = document.getElementById('item-h');
 
     contStats.style.display = 'none';
     contQuiver.style.display = 'none';
     if (contGeneral) contGeneral.style.display = 'none';
+
+    // Por defecto habilitamos los campos de ancho y alto
+    inputW.disabled = false;
+    inputH.disabled = false;
 
     if (tipo === 'arma') {
         contStats.style.display = 'block';
@@ -457,6 +463,11 @@ function mostrarCamposEspeciales() {
         document.getElementById('extra-stat-label').textContent = 'Clase de Armadura (CA):';
     } else if (tipo === 'carcaj') {
         contQuiver.style.display = 'block';
+        // Forzamos tamaño 2x1 y bloqueamos los inputs
+        inputW.value = '2';
+        inputH.value = '1';
+        inputW.disabled = true;
+        inputH.disabled = true;
     } else if (tipo === 'general') {
         if (contGeneral) contGeneral.style.display = 'block';
     }
@@ -549,9 +560,16 @@ function abrirModalEdicion() {
     if (!itemSeleccionadoParaEdicion) return;
     let item = itemSeleccionadoParaEdicion;
 
+    const inputEditW = document.getElementById('edit-item-w');
+    const inputEditH = document.getElementById('edit-item-h');
+
     document.getElementById('edit-item-name').value = item.nombre;
-    document.getElementById('edit-item-w').value = item.w;
-    document.getElementById('edit-item-h').value = item.h;
+    inputEditW.value = (item.tipo === 'carcaj') ? 2 : item.w;
+    inputEditH.value = (item.tipo === 'carcaj') ? 1 : item.h;
+
+    // Si es un carcaj, no permitimos editar su ancho ni su alto
+    inputEditW.disabled = (item.tipo === 'carcaj');
+    inputEditH.disabled = (item.tipo === 'carcaj');
 
     const contStats = document.getElementById('edit-extra-stats-container');
     if (item.tipo === 'arma' || item.tipo === 'armadura') {
@@ -562,14 +580,8 @@ function abrirModalEdicion() {
         contStats.style.display = 'none';
     }
 
-    // Ocultamos el modal de inspección sin borrar itemSeleccionadoParaEdicion
     document.getElementById('inspect-modal').style.display = 'none';
     document.getElementById('edit-modal').style.display = 'block';
-}
-
-function cerrarModalEdicion() {
-    document.getElementById('edit-modal').style.display = 'none';
-    itemSeleccionadoParaEdicion = null;
 }
 
 async function guardarEdicion() {
@@ -577,10 +589,9 @@ async function guardarEdicion() {
     if (!item) return;
 
     let nuevoNombre = document.getElementById('edit-item-name').value.trim() || "Objeto Desconocido";
-    let nuevoW = parseInt(document.getElementById('edit-item-w').value, 10);
-    let nuevoH = parseInt(document.getElementById('edit-item-h').value, 10);
+    let nuevoW = (item.tipo === 'carcaj') ? 2 : parseInt(document.getElementById('edit-item-w').value, 10);
+    let nuevoH = (item.tipo === 'carcaj') ? 1 : parseInt(document.getElementById('edit-item-h').value, 10);
 
-    // Validamos límites, zonas de color y que el nuevo tamaño no pise a otro ítem
     let errorEspacio = validarEspacioCompleto(item.r, item.c, nuevoW, nuevoH, item.tipo, item.id);
     if (errorEspacio) return mostrarAlerta(errorEspacio, "Ubicación Inválida");
 
@@ -597,18 +608,21 @@ async function guardarEdicion() {
             estadistica: nuevaEstadistica
         });
 
-        // Actualizamos el objeto en la memoria local
         item.nombre = nuevoNombre;
         item.w = nuevoW;
         item.h = nuevoH;
         item.estadistica = nuevaEstadistica;
 
-        // Actualizamos únicamente este ítem en el DOM sin recargar todo el tablero
         actualizarItemEnDOM(item);
         cerrarModalEdicion();
     } catch (error) {
         await mostrarAlerta("Error al actualizar: " + error.message, "Error");
     }
+}
+
+function cerrarModalEdicion() {
+    document.getElementById('edit-modal').style.display = 'none';
+    itemSeleccionadoParaEdicion = null;
 }
 
 // --- CIERRE DE MODALES (TECLA ESCAPE Y CLIC AFUERA) ---

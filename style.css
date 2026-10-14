@@ -475,6 +475,7 @@ body {
     background-repeat: no-repeat;
 }
 .modal option { background: var(--panel-bottom); color: var(--text); }
+.modal input:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Paneles que aparecen según el tipo de ítem */
 .panel {
