@@ -1,7 +1,7 @@
 // 1. Importar librerías de Firebase directamente (CDN)
 // 1. Importar librerías de Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
 // 2. PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE (Reemplaza este bloque)
@@ -28,6 +28,7 @@ let slotDestino = { r: 1, c: 1 };
 let totalBronceActual = 0;
 let itemSeleccionadoParaEdicion = null;
 let fichasActuales = { Avar: 0 }; // Objeto preparado para más tipos de fichas
+let listaItemsActuales = [];
 
 // --- SISTEMA DE USUARIOS ---
 onAuthStateChanged(auth, async (user) => {
@@ -53,10 +54,11 @@ onAuthStateChanged(auth, async (user) => {
         userInfo.style.display = 'none';
         
         document.querySelectorAll('.item').forEach(e => e.remove());
+        listaItemsActuales = []; // <--- LIMPIAR MEMORIA AL SALIR
         totalBronceActual = 0;
-        fichasActuales = { Avar: 0 }; // <--- NUEVO
+        fichasActuales = { Avar: 0 };
         actualizarUIMonedas();
-        actualizarUIFichas(); // <--- NUEVO
+        actualizarUIFichas();
     }
 });
 
@@ -112,23 +114,16 @@ async function cargarInventario() {
     
     document.querySelectorAll('.item').forEach(e => e.remove());
     const grid = document.getElementById('inventory-grid');
+    listaItemsActuales = []; 
     
     querySnapshot.forEach((documento) => {
         let item = documento.data();
-        item.id = documento.id; // Guardamos el ID único de Firebase
+        item.id = documento.id; 
+        listaItemsActuales.push(item); 
         
         let div = document.createElement('div');
         div.className = 'item';
-        
-        let textoExtra = "";
-        if(item.tipo === 'carcaj') textoExtra = `<br><span style="color:#ff0">${item.flechas} fl.</span>`;
-        if(item.estadistica) textoExtra = `<br><span style="color:#d4a373">[${item.estadistica}]</span>`;
-        // NUEVO: Si es general y hay más de 1, muestra el (x2), (x5), etc.
-        if(item.tipo === 'general' && (item.cantidad || 1) > 1) textoExtra = `<br><span style="color:#fff">(x${item.cantidad})</span>`;
-        
-        div.innerHTML = `${item.nombre} ${textoExtra}`;
-        div.style.gridRow = `${item.r} / span ${item.h}`;
-        div.style.gridColumn = `${item.c} / span ${item.w}`;
+        div.dataset.id = item.id; // <--- CLAVE: Le asignamos su ID al elemento HTML
         
         div.onclick = (e) => {
             e.stopPropagation(); 
@@ -136,13 +131,50 @@ async function cargarInventario() {
         };
         
         grid.appendChild(div);
+        
+        // Pintamos su texto y tamaño usando la nueva función
+        actualizarItemEnDOM(item); 
     });
+}
+
+function actualizarItemEnDOM(item) {
+    // 1. Buscamos en la cuadrícula únicamente el div de este ítem por su ID
+    const div = document.querySelector(`.item[data-id="${item.id}"]`);
+    if (!div) return;
+
+    // 2. Escribimos el nombre de forma segura (esto limpia también el contenido anterior del div)
+    div.textContent = item.nombre;
+
+    // 3. Calculamos si debe mostrar flechas, estadística o cantidad apilada
+    let textoExtra = "";
+    if (item.tipo === 'carcaj') {
+        textoExtra = `${item.flechas} fl.`;
+    } else if (item.estadistica) {
+        textoExtra = `[${item.estadistica}]`;
+    } else if (item.tipo === 'general' && (item.cantidad || 1) > 1) {
+        textoExtra = `(x${item.cantidad})`;
+    }
+
+    // 4. Si tiene texto extra, creamos el <span> que tu CSS estiliza en dorado
+    if (textoExtra) {
+        const span = document.createElement('span');
+        span.textContent = textoExtra;
+        div.appendChild(span);
+    }
+
+    // 5. Actualizamos su posición y tamaño (útil si cambiaste ancho o alto al editar)
+    div.style.gridRow = `${item.r} / span ${item.h}`;
+    div.style.gridColumn = `${item.c} / span ${item.w}`;
 }
 
 async function guardarItem() {
     const tipo = document.getElementById('item-type').value;
-    let errorZona = validarColorZona(slotDestino.r, slotDestino.c, tipo);
-    if(errorZona) return alert(errorZona);
+    const w = parseInt(document.getElementById('item-w').value);
+    const h = parseInt(document.getElementById('item-h').value);
+
+    // Reemplaza a validarColorZona: revisa límites, colores de todas las celdas y colisiones
+    let error = validarEspacioCompleto(slotDestino.r, slotDestino.c, w, h, tipo);
+    if (error) return alert(error);
 
     let flechas = 0, tamano = null, estadistica = null, cantidad = null; 
     if (tipo === 'carcaj') {
@@ -196,11 +228,11 @@ async function cambiarFlechas(cantidad) {
     if (nuevasFlechas < 0 || nuevasFlechas > max) return; 
     
     item.flechas = nuevasFlechas;
-    document.getElementById('inspect-arrows').innerText = nuevasFlechas;
+    document.getElementById('inspect-arrows').textContent = nuevasFlechas;
 
     try {
         await updateDoc(doc(db, "inventario", item.id), { flechas: nuevasFlechas });
-        cargarInventario(); 
+        actualizarItemEnDOM(item); // <--- Reemplaza a cargarInventario()
     } catch (error) {
         alert("Error actualizando flechas: " + error.message);
     }
@@ -231,14 +263,16 @@ async function procesarMonedas(operacion) {
     let totalConvertido = (oro * 100) + (plata * 10) + bronce;
     if (totalConvertido === 0) return cerrarModalMonedas();
 
-    if (operacion === 'sumar') totalBronceActual += totalConvertido;
+    if (operacion === 'sumar'){
+        const delta = totalConvertido;
+    } 
     else if (operacion === 'restar') {
         if (totalConvertido > totalBronceActual) return alert("Fondos insuficientes.");
-        totalBronceActual -= totalConvertido;
+        const delta = -totalConvertido;
     }
 
     try {
-        await updateDoc(doc(db, "config", "billetera"), { total_bronce: totalBronceActual });
+        await updateDoc(doc(db, "config", "billetera"), { total_bronce: increment(delta) });
         actualizarUIMonedas();
         cerrarModalMonedas();
     } catch (e) {
@@ -393,16 +427,15 @@ async function cambiarCantidad(cambio) {
     let item = itemSeleccionadoParaEdicion;
     if (item.tipo !== 'general') return;
     
-    // Calcula la nueva cantidad asegurando que ítems viejos empiecen en 1
     let nuevaCantidad = (item.cantidad || 1) + cambio;
-    if (nuevaCantidad < 1) return; // No permitimos bajar de 1. Para 0, se usa "Eliminar"
+    if (nuevaCantidad < 1) return; 
     
     item.cantidad = nuevaCantidad;
-    document.getElementById('inspect-cantidad').innerText = nuevaCantidad;
+    document.getElementById('inspect-cantidad').textContent = nuevaCantidad;
 
     try {
         await updateDoc(doc(db, "inventario", item.id), { cantidad: nuevaCantidad });
-        cargarInventario(); 
+        actualizarItemEnDOM(item); // <--- Reemplaza a cargarInventario()
     } catch (error) {
         alert("Error actualizando cantidad: " + error.message);
     }
@@ -438,29 +471,102 @@ async function guardarEdicion() {
     let item = itemSeleccionadoParaEdicion;
     if (!item) return;
     
-    let nuevoNombre = document.getElementById('edit-item-name').value;
+    let nuevoNombre = document.getElementById('edit-item-name').value.trim() || "Objeto Desconocido";
     let nuevoW = parseInt(document.getElementById('edit-item-w').value);
     let nuevoH = parseInt(document.getElementById('edit-item-h').value);
     
+    // Si ya agregaste la validación de espacio completo, va aquí:
+    let error = validarEspacioCompleto(item.r, item.c, nuevoW, nuevoH, item.tipo, item.id);
+    if (error) return alert(error);
+
     let nuevaEstadistica = item.estadistica;
     if (item.tipo === 'arma' || item.tipo === 'armadura') {
         nuevaEstadistica = document.getElementById('edit-item-stat').value;
     }
 
     try {
-        // Actualizamos solo los datos visuales en la nube, el tipo y la posición se mantienen
         await updateDoc(doc(db, "inventario", item.id), { 
             nombre: nuevoNombre,
             w: nuevoW,
             h: nuevoH,
             estadistica: nuevaEstadistica
         });
+
+        // Actualizamos el objeto en la memoria local
+        item.nombre = nuevoNombre;
+        item.w = nuevoW;
+        item.h = nuevoH;
+        item.estadistica = nuevaEstadistica;
+
+        // Actualizamos solo este ítem en la cuadrícula y cerramos el modal
+        actualizarItemEnDOM(item); // <--- Reemplaza a cargarInventario()
         cerrarModalEdicion();
-        cargarInventario(); 
     } catch (error) {
         alert("Error al actualizar: " + error.message);
     }
 }
+
+function validarEspacioCompleto(r, c, w, h, tipo, idIgnorar = null) {
+    // 1. Validar que sean enteros positivos
+    if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1) {
+        return "El ancho y el alto deben ser números enteros mayores o iguales a 1.";
+    }
+
+    // 2. Validar que no se salga de la cuadrícula (8x9)
+    if (r + h - 1 > ROWS || c + w - 1 > COLS) {
+        return "El ítem se sale de los límites del inventario.";
+    }
+
+    // 3. Validar que TODAS las casillas que ocupa pertenezcan a la zona correcta
+    for (let fila = r; fila < r + h; fila++) {
+        for (let col = c; col < c + w; col++) {
+            let errorZona = validarColorZona(fila, col, tipo);
+            if (errorZona) return errorZona;
+        }
+    }
+
+    // 4. Validar que no pise a otro ítem existente
+    for (const otro of listaItemsActuales) {
+        if (otro.id === idIgnorar) continue; // Ignorarse a sí mismo al editar
+
+        const seSolapanFilas = r < (otro.r + otro.h) && (r + h) > otro.r;
+        const seSolapanCols  = c < (otro.c + otro.w) && (c + w) > otro.c;
+
+        if (seSolapanFilas && seSolapanCols) {
+            return `El espacio choca con "${otro.nombre}".`;
+        }
+    }
+
+    return null; // Todo válido
+}
+
+function obtenerModalAbierto() {
+    return Array.from(document.querySelectorAll('.modal'))
+        .find(m => m.style.display === 'block');
+}
+
+function cerrarModalActivo() {
+    const modal = obtenerModalAbierto();
+    if (!modal) return;
+    if (modal.id === 'inspect-modal') cerrarInspectModal();
+    else if (modal.id === 'edit-modal') cerrarModalEdicion();
+    else modal.style.display = 'none';
+}
+
+// Cerrar con tecla Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') cerrarModalActivo();
+});
+
+// Cerrar al hacer clic fuera del modal (y evitar clics fantasma en la cuadrícula)
+document.addEventListener('pointerdown', (e) => {
+    const modal = obtenerModalAbierto();
+    if (modal && !modal.contains(e.target)) {
+        e.stopPropagation();
+        e.preventDefault();
+        cerrarModalActivo();
+    }
+}, true); // true = fase de captura, intercepta el clic antes de que llegue al slot
 
 // 5. Exponer las funciones a la ventana global (necesario por usar type="module")
 window.abrirModal = abrirModal;
