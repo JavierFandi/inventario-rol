@@ -28,6 +28,64 @@ let totalBronceActual = 0;
 let itemSeleccionadoParaEdicion = null;
 let fichasActuales = { Avar: 0 }; // Objeto preparado para más tipos de fichas
 let listaItemsActuales = []; // Memoria local para validar colisiones y actualizar el DOM
+let resolverDialogoActual = null; // Controla la promesa del modal de alerta/confirmación
+
+// --- SISTEMA DE DIÁLOGOS PERSONALIZADOS (REEMPLAZO DE ALERT Y CONFIRM) ---
+
+function cerrarDialogo(resultado = false) {
+    const modal = document.getElementById('dialog-modal');
+    const okBtn = document.getElementById('dialog-ok-btn');
+    const cancelBtn = document.getElementById('dialog-cancel-btn');
+
+    if (modal) modal.style.display = 'none';
+    if (okBtn) okBtn.onclick = null;
+    if (cancelBtn) cancelBtn.onclick = null;
+
+    if (resolverDialogoActual) {
+        const resolve = resolverDialogoActual;
+        resolverDialogoActual = null;
+        resolve(resultado);
+    }
+}
+
+function mostrarDialogo({ titulo = "Aviso", mensaje = "", esConfirmacion = false, textoOk = "Aceptar" }) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('dialog-modal');
+        const titleEl = document.getElementById('dialog-title');
+        const msgEl = document.getElementById('dialog-message');
+        const okBtn = document.getElementById('dialog-ok-btn');
+        const cancelBtn = document.getElementById('dialog-cancel-btn');
+
+        // Fallback de seguridad si aún no cargó el elemento en el HTML
+        if (!modal) {
+            resolve(esConfirmacion ? confirm(mensaje) : (alert(mensaje), true));
+            return;
+        }
+
+        resolverDialogoActual = resolve;
+
+        titleEl.textContent = titulo;
+        msgEl.textContent = mensaje;
+        okBtn.textContent = textoOk;
+
+        okBtn.className = esConfirmacion ? 'btn btn-danger' : 'btn btn-primary';
+        cancelBtn.style.display = esConfirmacion ? 'inline-block' : 'none';
+
+        okBtn.onclick = () => cerrarDialogo(true);
+        cancelBtn.onclick = () => cerrarDialogo(false);
+
+        modal.style.display = 'block';
+        okBtn.focus();
+    });
+}
+
+function mostrarAlerta(mensaje, titulo = "Aviso") {
+    return mostrarDialogo({ titulo, mensaje, esConfirmacion: false, textoOk: "Aceptar" });
+}
+
+function mostrarConfirmacion(mensaje, titulo = "Confirmar") {
+    return mostrarDialogo({ titulo, mensaje, esConfirmacion: true, textoOk: "Eliminar" });
+}
 
 // --- SISTEMA DE USUARIOS ---
 onAuthStateChanged(auth, async (user) => {
@@ -64,7 +122,7 @@ async function iniciarSesion() {
     try {
         await signInWithPopup(auth, provider);
     } catch (error) {
-        alert("Error al iniciar sesión: " + error.message);
+        await mostrarAlerta("Error al iniciar sesión: " + error.message, "Error de Sesión");
     }
 }
 
@@ -72,7 +130,7 @@ async function cerrarSesion() {
     try {
         await signOut(auth);
     } catch (error) {
-        alert("Error al cerrar sesión: " + error.message);
+        await mostrarAlerta("Error al cerrar sesión: " + error.message, "Error de Sesión");
     }
 }
 
@@ -201,19 +259,21 @@ async function guardarItem() {
     const h = parseInt(document.getElementById('item-h').value, 10);
 
     let errorEspacio = validarEspacioCompleto(slotDestino.r, slotDestino.c, w, h, tipo);
-    if (errorEspacio) return alert(errorEspacio);
+    if (errorEspacio) return mostrarAlerta(errorEspacio, "Ubicación Inválida");
 
     let flechas = 0, tamano = null, estadistica = null, cantidad = null;
     if (tipo === 'carcaj') {
         tamano = document.getElementById('quiver-size').value;
         flechas = parseInt(document.getElementById('quiver-arrows').value, 10) || 0;
         let max = (tamano === 'chico') ? 10 : (tamano === 'mediano') ? 20 : 50;
-        if (flechas < 0 || flechas > max) return alert(`El carcaj ${tamano} solo puede llevar entre 0 y ${max} flechas.`);
+        if (flechas < 0 || flechas > max) {
+            return mostrarAlerta(`El carcaj ${tamano} solo puede llevar entre 0 y ${max} flechas.`, "Capacidad Excedida");
+        }
     } else if (tipo === 'arma' || tipo === 'armadura') {
         estadistica = document.getElementById('item-stat').value.trim();
     } else if (tipo === 'general') {
         cantidad = parseInt(document.getElementById('general-quantity').value, 10) || 1;
-        if (cantidad < 1) return alert("La cantidad inicial debe ser al menos 1.");
+        if (cantidad < 1) return mostrarAlerta("La cantidad inicial debe ser al menos 1.", "Cantidad Inválida");
     }
 
     const data = {
@@ -234,19 +294,24 @@ async function guardarItem() {
         cerrarModal();
         await cargarInventario();
     } catch (error) {
-        alert("Error de guardado en la nube: " + error.message);
+        await mostrarAlerta("Error de guardado en la nube: " + error.message, "Error");
     }
 }
 
 async function eliminarItemSeleccionado() {
     if (!itemSeleccionadoParaEdicion) return;
-    if (!confirm(`¿Seguro que quieres eliminar ${itemSeleccionadoParaEdicion.nombre}?`)) return;
+    const confirmar = await mostrarConfirmacion(
+        `¿Seguro que quieres eliminar "${itemSeleccionadoParaEdicion.nombre}"?`,
+        "Eliminar Ítem"
+    );
+    if (!confirmar) return;
+
     try {
         await deleteDoc(doc(db, "inventario", itemSeleccionadoParaEdicion.id));
         cerrarInspectModal();
         await cargarInventario();
     } catch (error) {
-        alert("Error al eliminar: " + error.message);
+        await mostrarAlerta("Error al eliminar: " + error.message, "Error");
     }
 }
 
@@ -265,7 +330,7 @@ async function cambiarFlechas(cantidad) {
         await updateDoc(doc(db, "inventario", item.id), { flechas: nuevasFlechas });
         actualizarItemEnDOM(item);
     } catch (error) {
-        alert("Error actualizando flechas: " + error.message);
+        await mostrarAlerta("Error actualizando flechas: " + error.message, "Error");
     }
 }
 
@@ -289,13 +354,15 @@ async function procesarMonedas(operacion) {
     let plata = parseInt(document.getElementById('input-silver').value, 10) || 0;
     let bronce = parseInt(document.getElementById('input-bronze').value, 10) || 0;
 
-    if (oro < 0 || plata < 0 || bronce < 0) return alert("Ingresa números positivos.");
+    if (oro < 0 || plata < 0 || bronce < 0) {
+        return mostrarAlerta("Ingresa números positivos.", "Cantidad Inválida");
+    }
 
     let totalConvertido = (oro * 100) + (plata * 10) + bronce;
     if (totalConvertido === 0) return cerrarModalMonedas();
 
     if (operacion === 'restar' && totalConvertido > totalBronceActual) {
-        return alert("Fondos insuficientes.");
+        return mostrarAlerta("Fondos insuficientes.", "Billetera");
     }
 
     const delta = (operacion === 'sumar') ? totalConvertido : -totalConvertido;
@@ -307,7 +374,7 @@ async function procesarMonedas(operacion) {
         actualizarUIMonedas();
         cerrarModalMonedas();
     } catch (e) {
-        alert("Error al guardar monedas: " + e.message);
+        await mostrarAlerta("Error al guardar monedas: " + e.message, "Error");
     }
 }
 
@@ -336,11 +403,11 @@ async function cargarFichas() {
 async function procesarFichas(operacion) {
     let cantidad = parseInt(document.getElementById('input-fichas-Avar').value, 10) || 0;
 
-    if (cantidad < 0) return alert("Ingresa números positivos.");
+    if (cantidad < 0) return mostrarAlerta("Ingresa números positivos.", "Cantidad Inválida");
     if (cantidad === 0) return cerrarModalFichas();
 
     if (operacion === 'restar' && cantidad > fichasActuales.Avar) {
-        return alert("Fichas insuficientes.");
+        return mostrarAlerta("Fichas insuficientes.", "Fichas Avar");
     }
 
     const delta = (operacion === 'sumar') ? cantidad : -cantidad;
@@ -352,7 +419,7 @@ async function procesarFichas(operacion) {
         actualizarUIFichas();
         cerrarModalFichas();
     } catch (e) {
-        alert("Error al guardar fichas: " + e.message);
+        await mostrarAlerta("Error al guardar fichas: " + e.message, "Error");
     }
 }
 
@@ -474,7 +541,7 @@ async function cambiarCantidad(cambio) {
         await updateDoc(doc(db, "inventario", item.id), { cantidad: nuevaCantidad });
         actualizarItemEnDOM(item);
     } catch (error) {
-        alert("Error actualizando cantidad: " + error.message);
+        await mostrarAlerta("Error actualizando cantidad: " + error.message, "Error");
     }
 }
 
@@ -515,7 +582,7 @@ async function guardarEdicion() {
 
     // Validamos límites, zonas de color y que el nuevo tamaño no pise a otro ítem
     let errorEspacio = validarEspacioCompleto(item.r, item.c, nuevoW, nuevoH, item.tipo, item.id);
-    if (errorEspacio) return alert(errorEspacio);
+    if (errorEspacio) return mostrarAlerta(errorEspacio, "Ubicación Inválida");
 
     let nuevaEstadistica = item.estadistica;
     if (item.tipo === 'arma' || item.tipo === 'armadura') {
@@ -540,13 +607,19 @@ async function guardarEdicion() {
         actualizarItemEnDOM(item);
         cerrarModalEdicion();
     } catch (error) {
-        alert("Error al actualizar: " + error.message);
+        await mostrarAlerta("Error al actualizar: " + error.message, "Error");
     }
 }
 
 // --- CIERRE DE MODALES (TECLA ESCAPE Y CLIC AFUERA) ---
 
 function obtenerModalAbierto() {
+    // Prioridad absoluta al modal de diálogo si está visible en la capa superior
+    const dialogModal = document.getElementById('dialog-modal');
+    if (dialogModal && dialogModal.style.display === 'block') {
+        return dialogModal;
+    }
+
     return Array.from(document.querySelectorAll('.modal'))
         .find(m => m.style.display === 'block');
 }
@@ -554,7 +627,8 @@ function obtenerModalAbierto() {
 function cerrarModalActivo() {
     const modal = obtenerModalAbierto();
     if (!modal) return;
-    if (modal.id === 'inspect-modal') cerrarInspectModal();
+    if (modal.id === 'dialog-modal') cerrarDialogo(false);
+    else if (modal.id === 'inspect-modal') cerrarInspectModal();
     else if (modal.id === 'edit-modal') cerrarModalEdicion();
     else modal.style.display = 'none';
 }

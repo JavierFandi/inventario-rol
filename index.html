@@ -189,5 +189,16 @@
             <button class="btn btn-primary" onclick="procesarFichas('sumar')">Agregar (+)</button>
         </div>
     </div>
+
+    <!-- NUEVO: Modal reutilizable para Alertas y Confirmaciones -->
+    <div id="dialog-modal" class="modal" style="display:none;">
+        <h3 id="dialog-title" class="modal-title">Aviso</h3>
+        <p id="dialog-message" class="modal-hint" style="font-size: 15px; color: var(--parchment);"></p>
+        
+        <div class="modal-actions modal-actions--spread">
+            <button id="dialog-cancel-btn" class="btn btn-muted" style="display:none;">Cancelar</button>
+            <button id="dialog-ok-btn" class="btn btn-primary">Aceptar</button>
+        </div>
+    </div>
 </body>
 </html>

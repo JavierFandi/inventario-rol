@@ -405,6 +405,7 @@ body {
 #edit-modal    { --accent: var(--c-edit); }
 #coin-modal    { --accent: var(--coin-gold); }
 #token-modal   { --accent: var(--token-border); }
+#dialog-modal  { z-index: 200; --accent: var(--gold-bright); }
 
 .modal-title {
     margin: 0 0 16px;
