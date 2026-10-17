@@ -27,6 +27,7 @@ let uidActual = null; // Guarda el ID único del jugador logueado
 let slotDestino = { r: 1, c: 1 };
 let totalBronceActual = 0;
 let itemSeleccionadoParaEdicion = null;
+<<<<<<< HEAD
 let fichasActuales = { Avar: 0 };
 let listaItemsActuales = [];
 let resolverDialogoActual = null;
@@ -45,6 +46,13 @@ function refDocConfig(documento) {
 }
 
 // --- SISTEMA DE DIÁLOGOS PERSONALIZADOS ---
+=======
+let fichasActuales = { Avar: 0 }; // Objeto preparado para más tipos de fichas
+let listaItemsActuales = []; // Memoria local para validar colisiones y actualizar el DOM
+let resolverDialogoActual = null; // Controla la promesa del modal de alerta/confirmación
+
+// --- SISTEMA DE DIÁLOGOS PERSONALIZADOS (REEMPLAZO DE ALERT Y CONFIRM) ---
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
 
 function cerrarDialogo(resultado = false) {
     const modal = document.getElementById('dialog-modal');
@@ -70,6 +78,10 @@ function mostrarDialogo({ titulo = "Aviso", mensaje = "", esConfirmacion = false
         const okBtn = document.getElementById('dialog-ok-btn');
         const cancelBtn = document.getElementById('dialog-cancel-btn');
 
+<<<<<<< HEAD
+=======
+        // Fallback de seguridad si aún no cargó el elemento en el HTML
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
         if (!modal) {
             resolve(esConfirmacion ? confirm(mensaje) : (alert(mensaje), true));
             return;
@@ -109,7 +121,10 @@ onAuthStateChanged(auth, async (user) => {
     dibujarCuadriculaFondo();
 
     if (user) {
+<<<<<<< HEAD
         uidActual = user.uid; // Asignamos el ID único de este jugador
+=======
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
         loginBtn.style.display = 'none';
         logoutBtn.style.display = 'inline-block';
         userInfo.style.display = 'inline-block';
@@ -181,14 +196,26 @@ function validarColorZona(r, c, tipo) {
 }
 
 function validarEspacioCompleto(r, c, w, h, tipo, idIgnorar = null) {
+<<<<<<< HEAD
+=======
+    // 1. Validar que ancho y alto sean enteros válidos
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
     if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1) {
         return "El ancho y el alto deben ser números enteros mayores o iguales a 1.";
     }
 
+<<<<<<< HEAD
+=======
+    // 2. Validar que el ítem no se salga de los bordes de la cuadrícula (8x9)
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
     if (r + h - 1 > ROWS || c + w - 1 > COLS) {
         return "El ítem se sale de los límites del inventario.";
     }
 
+<<<<<<< HEAD
+=======
+    // 3. Validar que TODAS las casillas que ocupa correspondan a su zona de color
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
     for (let fila = r; fila < r + h; fila++) {
         for (let col = c; col < c + w; col++) {
             let errorZona = validarColorZona(fila, col, tipo);
@@ -196,8 +223,14 @@ function validarEspacioCompleto(r, c, w, h, tipo, idIgnorar = null) {
         }
     }
 
+<<<<<<< HEAD
     for (const otro of listaItemsActuales) {
         if (otro.id === idIgnorar) continue;
+=======
+    // 4. Validar que no pise a otro ítem existente
+    for (const otro of listaItemsActuales) {
+        if (otro.id === idIgnorar) continue; // Ignorarse a sí mismo al editar
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
 
         const seSolapanFilas = r < (otro.r + otro.h) && (r + h) > otro.r;
         const seSolapanCols  = c < (otro.c + otro.w) && (c + w) > otro.c;
@@ -207,6 +240,7 @@ function validarEspacioCompleto(r, c, w, h, tipo, idIgnorar = null) {
         }
     }
 
+<<<<<<< HEAD
     return null;
 }
 
@@ -236,10 +270,46 @@ function actualizarItemEnDOM(item) {
     div.style.gridRow = `${item.r} / span ${item.h}`;
     div.style.gridColumn = `${item.c} / span ${item.w}`;
 }
+=======
+    return null; // Espacio válido y libre
+}
+
+// --- CONEXIÓN FIREBASE: INVENTARIO ---
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
+
+function actualizarItemEnDOM(item) {
+    const div = document.querySelector(`.item[data-id="${item.id}"]`);
+    if (!div) return;
+
+    // Seguro contra inyección HTML (XSS)
+    div.textContent = item.nombre;
+
+    let textoExtra = "";
+    if (item.tipo === 'carcaj') {
+        textoExtra = `${item.flechas} fl.`;
+    } else if (item.estadistica) {
+        textoExtra = `[${item.estadistica}]`;
+    } else if (item.tipo === 'general' && (item.cantidad || 1) > 1) {
+        textoExtra = `(x${item.cantidad})`;
+    }
+
+    if (textoExtra) {
+        const span = document.createElement('span');
+        span.textContent = textoExtra;
+        div.appendChild(span);
+    }
+
+    div.style.gridRow = `${item.r} / span ${item.h}`;
+    div.style.gridColumn = `${item.c} / span ${item.w}`;
+}
 
 async function cargarInventario() {
+<<<<<<< HEAD
     if (!uidActual) return;
     const querySnapshot = await getDocs(refColeccionInventario());
+=======
+    const querySnapshot = await getDocs(collection(db, "inventario"));
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
 
     document.querySelectorAll('.item').forEach(e => e.remove());
     const grid = document.getElementById('inventory-grid');
@@ -247,7 +317,11 @@ async function cargarInventario() {
 
     querySnapshot.forEach((documento) => {
         let item = documento.data();
+<<<<<<< HEAD
         item.id = documento.id;
+=======
+        item.id = documento.id; // Guardamos el ID único de Firebase
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
         listaItemsActuales.push(item);
 
         let div = document.createElement('div');
@@ -265,12 +339,19 @@ async function cargarInventario() {
 }
 
 async function guardarItem() {
+<<<<<<< HEAD
     if (!uidActual) return mostrarAlerta("Debes iniciar sesión primero.", "Sesión Requerida");
 
     const tipo = document.getElementById('item-type').value;
     const w = (tipo === 'carcaj') ? 2 : parseInt(document.getElementById('item-w').value, 10);
     const h = (tipo === 'carcaj') ? 1 : parseInt(document.getElementById('item-h').value, 10);
 
+=======
+    const tipo = document.getElementById('item-type').value;
+    const w = (tipo === 'carcaj') ? 2 : parseInt(document.getElementById('item-w').value, 10);
+    const h = (tipo === 'carcaj') ? 1 : parseInt(document.getElementById('item-h').value, 10);
+
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
     let errorEspacio = validarEspacioCompleto(slotDestino.r, slotDestino.c, w, h, tipo);
     if (errorEspacio) return mostrarAlerta(errorEspacio, "Ubicación Inválida");
 
@@ -312,7 +393,11 @@ async function guardarItem() {
 }
 
 async function eliminarItemSeleccionado() {
+<<<<<<< HEAD
     if (!uidActual || !itemSeleccionadoParaEdicion) return;
+=======
+    if (!itemSeleccionadoParaEdicion) return;
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
     const confirmar = await mostrarConfirmacion(
         `¿Seguro que quieres eliminar "${itemSeleccionadoParaEdicion.nombre}"?`,
         "Eliminar Ítem"
@@ -330,7 +415,11 @@ async function eliminarItemSeleccionado() {
 
 async function cambiarFlechas(cantidad) {
     let item = itemSeleccionadoParaEdicion;
+<<<<<<< HEAD
     if (!uidActual || !item || item.tipo !== 'carcaj') return;
+=======
+    if (!item || item.tipo !== 'carcaj') return;
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
 
     let max = (item.tamano === 'chico') ? 10 : (item.tamano === 'mediano') ? 20 : 50;
     let nuevasFlechas = item.flechas + cantidad;
@@ -340,7 +429,11 @@ async function cambiarFlechas(cantidad) {
     document.getElementById('inspect-arrows').textContent = nuevasFlechas;
 
     try {
+<<<<<<< HEAD
         await updateDoc(refDocInventario(item.id), { flechas: nuevasFlechas });
+=======
+        await updateDoc(doc(db, "inventario", item.id), { flechas: nuevasFlechas });
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
         actualizarItemEnDOM(item);
     } catch (error) {
         await mostrarAlerta("Error actualizando flechas: " + error.message, "Error");
@@ -364,8 +457,11 @@ async function cargarMonedas() {
 }
 
 async function procesarMonedas(operacion) {
+<<<<<<< HEAD
     if (!uidActual) return mostrarAlerta("Debes iniciar sesión primero.", "Sesión Requerida");
 
+=======
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
     let oro = parseInt(document.getElementById('input-gold').value, 10) || 0;
     let plata = parseInt(document.getElementById('input-silver').value, 10) || 0;
     let bronce = parseInt(document.getElementById('input-bronze').value, 10) || 0;
@@ -384,7 +480,12 @@ async function procesarMonedas(operacion) {
     const delta = (operacion === 'sumar') ? totalConvertido : -totalConvertido;
 
     try {
+<<<<<<< HEAD
         await updateDoc(refDocConfig("billetera"), { total_bronce: increment(delta) });
+=======
+        const docRef = doc(db, "config", "billetera");
+        await updateDoc(docRef, { total_bronce: increment(delta) });
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
         totalBronceActual += delta;
         actualizarUIMonedas();
         cerrarModalMonedas();
@@ -417,10 +518,15 @@ async function cargarFichas() {
 }
 
 async function procesarFichas(operacion) {
+<<<<<<< HEAD
     if (!uidActual) return mostrarAlerta("Debes iniciar sesión primero.", "Sesión Requerida");
 
     let cantidad = parseInt(document.getElementById('input-fichas-Avar').value, 10) || 0;
 
+=======
+    let cantidad = parseInt(document.getElementById('input-fichas-Avar').value, 10) || 0;
+
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
     if (cantidad < 0) return mostrarAlerta("Ingresa números positivos.", "Cantidad Inválida");
     if (cantidad === 0) return cerrarModalFichas();
 
@@ -431,7 +537,12 @@ async function procesarFichas(operacion) {
     const delta = (operacion === 'sumar') ? cantidad : -cantidad;
 
     try {
+<<<<<<< HEAD
         await updateDoc(refDocConfig("fichas"), { Avar: increment(delta) });
+=======
+        const docRef = doc(db, "config", "fichas");
+        await updateDoc(docRef, { Avar: increment(delta) });
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
         fichasActuales.Avar += delta;
         actualizarUIFichas();
         cerrarModalFichas();
@@ -468,6 +579,10 @@ function mostrarCamposEspeciales() {
     contQuiver.style.display = 'none';
     if (contGeneral) contGeneral.style.display = 'none';
 
+<<<<<<< HEAD
+=======
+    // Por defecto habilitamos los campos de ancho y alto
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
     inputW.disabled = false;
     inputH.disabled = false;
 
@@ -479,6 +594,10 @@ function mostrarCamposEspeciales() {
         document.getElementById('extra-stat-label').textContent = 'Clase de Armadura (CA):';
     } else if (tipo === 'carcaj') {
         contQuiver.style.display = 'block';
+<<<<<<< HEAD
+=======
+        // Forzamos tamaño 2x1 y bloqueamos los inputs
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
         inputW.value = '2';
         inputH.value = '1';
         inputW.disabled = true;
@@ -557,16 +676,27 @@ function cerrarInspectModal() {
 
 async function cambiarCantidad(cambio) {
     let item = itemSeleccionadoParaEdicion;
+<<<<<<< HEAD
     if (!uidActual || !item || item.tipo !== 'general') return;
 
     let nuevaCantidad = (item.cantidad || 1) + cambio;
     if (nuevaCantidad < 1) return;
+=======
+    if (!item || item.tipo !== 'general') return;
+
+    let nuevaCantidad = (item.cantidad || 1) + cambio;
+    if (nuevaCantidad < 1) return; // No permitimos bajar de 1. Para 0, se usa "Eliminar"
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
 
     item.cantidad = nuevaCantidad;
     document.getElementById('inspect-cantidad').textContent = nuevaCantidad;
 
     try {
+<<<<<<< HEAD
         await updateDoc(refDocInventario(item.id), { cantidad: nuevaCantidad });
+=======
+        await updateDoc(doc(db, "inventario", item.id), { cantidad: nuevaCantidad });
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
         actualizarItemEnDOM(item);
     } catch (error) {
         await mostrarAlerta("Error actualizando cantidad: " + error.message, "Error");
@@ -584,6 +714,10 @@ function abrirModalEdicion() {
     inputEditW.value = (item.tipo === 'carcaj') ? 2 : item.w;
     inputEditH.value = (item.tipo === 'carcaj') ? 1 : item.h;
 
+<<<<<<< HEAD
+=======
+    // Si es un carcaj, no permitimos editar su ancho ni su alto
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
     inputEditW.disabled = (item.tipo === 'carcaj');
     inputEditH.disabled = (item.tipo === 'carcaj');
 
@@ -600,6 +734,7 @@ function abrirModalEdicion() {
     document.getElementById('edit-modal').style.display = 'block';
 }
 
+<<<<<<< HEAD
 function cerrarModalEdicion() {
     document.getElementById('edit-modal').style.display = 'none';
     itemSeleccionadoParaEdicion = null;
@@ -608,6 +743,11 @@ function cerrarModalEdicion() {
 async function guardarEdicion() {
     let item = itemSeleccionadoParaEdicion;
     if (!uidActual || !item) return;
+=======
+async function guardarEdicion() {
+    let item = itemSeleccionadoParaEdicion;
+    if (!item) return;
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
 
     let nuevoNombre = document.getElementById('edit-item-name').value.trim() || "Objeto Desconocido";
     let nuevoW = (item.tipo === 'carcaj') ? 2 : parseInt(document.getElementById('edit-item-w').value, 10);
@@ -622,7 +762,11 @@ async function guardarEdicion() {
     }
 
     try {
+<<<<<<< HEAD
         await updateDoc(refDocInventario(item.id), {
+=======
+        await updateDoc(doc(db, "inventario", item.id), {
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
             nombre: nuevoNombre,
             w: nuevoW,
             h: nuevoH,
@@ -641,9 +785,21 @@ async function guardarEdicion() {
     }
 }
 
+<<<<<<< HEAD
 // --- CIERRE DE MODALES (TECLA ESCAPE Y CLIC AFUERA) ---
 
 function obtenerModalAbierto() {
+=======
+function cerrarModalEdicion() {
+    document.getElementById('edit-modal').style.display = 'none';
+    itemSeleccionadoParaEdicion = null;
+}
+
+// --- CIERRE DE MODALES (TECLA ESCAPE Y CLIC AFUERA) ---
+
+function obtenerModalAbierto() {
+    // Prioridad absoluta al modal de diálogo si está visible en la capa superior
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
     const dialogModal = document.getElementById('dialog-modal');
     if (dialogModal && dialogModal.style.display === 'block') {
         return dialogModal;
@@ -673,9 +829,15 @@ document.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         cerrarModalActivo();
     }
+<<<<<<< HEAD
 }, true);
 
 // 5. Exponer las funciones a la ventana global
+=======
+}, true); // Fase de captura para evitar clics accidentales en la cuadrícula de fondo
+
+// 5. Exponer las funciones a la ventana global (necesario por usar type="module")
+>>>>>>> 65cea0f85454207ee1f8f3b72e0a418047fc32b8
 window.abrirModal = abrirModal;
 window.cerrarModal = cerrarModal;
 window.guardarItem = guardarItem;

@@ -2,17 +2,18 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Inventario RPG</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Inventario Rol</title>
     <link rel="stylesheet" href="style.css">
     <script type="module" src="script.js"></script>
 </head>
 <body>
     <div class="inventory-container">
         <!-- NUEVO: Barra de Autenticación -->
-        <div id="auth-bar" style="text-align: right; margin-bottom: 15px; color: white;">
-            <span id="user-info" style="display:none; margin-right: 15px; color: #d4a373;"></span>
-            <button id="login-btn" onclick="iniciarSesion()" style="padding: 8px 15px; background: #0c6b5d; color: white; border: none; cursor: pointer; border-radius: 4px;">Iniciar Sesión con Google</button>
-            <button id="logout-btn" onclick="cerrarSesion()" style="display:none; padding: 8px 15px; background: #8b0000; color: white; border: none; cursor: pointer; border-radius: 4px;">Cerrar Sesión</button>
+        <div id="auth-bar" class="auth-bar">
+            <span id="user-info" class="user-info" style="display:none;"></span>
+            <button id="login-btn" class="btn btn-primary" onclick="iniciarSesion()">Iniciar Sesión con Google</button>
+            <button id="logout-btn" class="btn btn-danger" onclick="cerrarSesion()" style="display:none;">Cerrar Sesión</button>
         </div>
 
         <div class="grid" id="inventory-grid"></div>
@@ -25,24 +26,24 @@
         </div>
 
         <!-- Barra de Fichas (Preparada para agregar más en el futuro) -->
-        <div style="display: flex; gap: 10px; margin-top: 10px; margin-bottom: 20px;">
-            <div onclick="abrirModalFichas()" style="background: #2b2d42; border: 1px solid #8d99ae; padding: 10px; border-radius: 4px; cursor: pointer; color: white; text-align: center; flex: 1; font-weight: bold;">
+        <div class="tokens-bar">
+            <div class="token-box" onclick="abrirModalFichas()">
                 Fichas: <span id="val-fichas-Avar">0</span>
             </div>
         </div>
     </div>
 
-    <div id="add-modal" style="display:none; position:fixed; top:15%; left:50%; transform: translate(-50%, 0); background:#222; padding:25px; border:1px solid #555; border-radius: 8px; width: 320px; color: white; z-index: 100;">
-        <h3 style="color:#d4a373; margin-top:0; text-align: center;">Agregar Ítem</h3>
+    <div id="add-modal" class="modal" style="display:none;">
+        <h3 class="modal-title">Agregar Ítem</h3>
         
-        <div style="margin-bottom: 15px;">
-            <label style="display: block; font-size: 13px; color: #bbb;">Nombre:</label>
-            <input type="text" id="item-name" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white;">
+        <div class="field">
+            <label>Nombre:</label>
+            <input type="text" id="item-name">
         </div>
 
-        <div style="margin-bottom: 15px;">
-            <label style="display: block; font-size: 13px; color: #bbb;">Tipo:</label>
-            <select id="item-type" onchange="mostrarCamposEspeciales()" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white;">
+        <div class="field">
+            <label>Tipo:</label>
+            <select id="item-type" onchange="mostrarCamposEspeciales()">
                 <option value="general">General (Zona Roja)</option>
                 <option value="arma">Arma (Zona Verde)</option>
                 <option value="armadura">Armadura (Zona Celeste)</option>
@@ -50,142 +51,153 @@
             </select>
         </div>
 
-        <div id="extra-stats-container" style="display: none; margin-bottom: 15px; padding: 10px; border: 1px dashed #555; border-radius: 4px; background: #1a1a1a;">
-            <label id="extra-stat-label" style="display: block; font-size: 13px; color: #d4a373;">Estadística:</label>
-            <input type="text" id="item-stat" style="width: 93%; padding: 8px; background: #111; border: 1px solid #444; color: white;">
+        <div id="extra-stats-container" class="panel" style="display:none;">
+            <label id="extra-stat-label">Estadística:</label>
+            <input type="text" id="item-stat">
         </div>
 
         <!-- CONTENEDOR ESPECIAL PARA EL CARCAJ -->
-        <div id="quiver-container" style="display: none; margin-bottom: 15px; padding: 10px; border: 1px dashed #555; border-radius: 4px; background: #1a1a1a;">
-            <label style="display: block; font-size: 13px; color: #d4a373;">Tamaño del Carcaj:</label>
-            <select id="quiver-size" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white; margin-bottom: 10px;">
+        <div id="quiver-container" class="panel" style="display:none;">
+            <label>Tamaño del Carcaj:</label>
+            <select id="quiver-size">
                 <option value="chico">Chico (Máx 10 flechas)</option>
                 <option value="mediano">Mediano (Máx 20 flechas)</option>
                 <option value="grande">Grande (Máx 50 flechas)</option>
             </select>
-            <label style="display: block; font-size: 13px; color: #bbb;">Flechas actuales:</label>
-            <input type="number" id="quiver-arrows" value="0" min="0" style="width: 94%; padding: 8px; background: #111; border: 1px solid #444; color: white;">
+            <label>Flechas actuales:</label>
+            <input type="number" id="quiver-arrows" value="0" min="0">
         </div>
 
         <!-- NUEVO: CONTENEDOR ESPECIAL PARA CANTIDADES GENERALES -->
-        <div id="general-quantity-container" style="display: block; margin-bottom: 15px; padding: 10px; border: 1px dashed #555; border-radius: 4px; background: #1a1a1a;">
-            <label style="display: block; font-size: 13px; color: #d4a373;">Cantidad Inicial:</label>
-            <input type="number" id="general-quantity" value="1" min="1" style="width: 94%; padding: 8px; background: #111; border: 1px solid #444; color: white;">
+        <div id="general-quantity-container" class="panel">
+            <label>Cantidad Inicial:</label>
+            <input type="number" id="general-quantity" value="1" min="1">
         </div>
 
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <div style="flex: 1;"><label style="font-size: 13px; color: #bbb;">Ancho:</label><input type="number" id="item-w" value="1" min="1" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white;"></div>
-            <div style="flex: 1;"><label style="font-size: 13px; color: #bbb;">Alto:</label><input type="number" id="item-h" value="1" min="1" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white;"></div>
+        <div class="field-row">
+            <div class="field"><label>Ancho:</label><input type="number" id="item-w" value="1" min="1"></div>
+            <div class="field"><label>Alto:</label><input type="number" id="item-h" value="1" min="1"></div>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 10px;">
-            <button onclick="cerrarModal()" style="padding: 8px 15px; background: #555; color: white; border: none; cursor: pointer;">Cancelar</button>
-            <button onclick="guardarItem()" style="padding: 8px 15px; background: #0c6b5d; color: white; border: none; cursor: pointer;">Guardar</button>
+        <div class="modal-actions">
+            <button class="btn btn-muted" onclick="cerrarModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="guardarItem()">Guardar</button>
         </div>
     </div>
 
     <!-- MODAL DE INSPECCIÓN/EDICIÓN ACTUALIZADO -->
-    <div id="inspect-modal" style="display:none; position:fixed; top:20%; left:50%; transform: translate(-50%, 0); background:#1a1a1a; padding:25px; border:2px solid #d4a373; border-radius: 8px; width: 300px; color: white; z-index: 100;">
-        <h3 id="inspect-name" style="color:#fff; margin-top:0; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px;">Nombre Ítem</h3>
-        <p id="inspect-type" style="font-size: 12px; color: #aaa; text-align: center; text-transform: uppercase;">TIPO</p>
+    <div id="inspect-modal" class="modal" style="display:none;">
+        <h3 id="inspect-name" class="modal-title">Nombre Ítem</h3>
+        <p id="inspect-type" class="item-type-tag">TIPO</p>
         
-        <div id="inspect-stat-box" style="display:none; text-align: center; margin: 15px 0; color: #d4a373; font-weight: bold; font-size: 18px;">
+        <div id="inspect-stat-box" class="inspect-stat" style="display:none;">
             <span id="inspect-stat"></span>
         </div>
 
         <!-- Flechas (Solo para Carcaj) -->
-        <div id="inspect-quiver-box" style="display:none; margin: 15px 0;">
-            <label style="display: block; font-size: 13px; color: #bbb; text-align: center;">Gestión de Flechas:</label>
-            <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 5px;">
-                <button onclick="cambiarFlechas(-1)" style="padding: 5px 10px; background: #8b0000; color: white; border: none; cursor: pointer;">-1</button>
-                <span id="inspect-arrows" style="font-size: 20px; font-weight: bold;">0</span> / <span id="inspect-max-arrows">0</span>
-                <button onclick="cambiarFlechas(1)" style="padding: 5px 10px; background: #0c6b5d; color: white; border: none; cursor: pointer;">+1</button>
+        <div id="inspect-quiver-box" class="inspect-section" style="display:none;">
+            <label class="section-label">Gestión de Flechas:</label>
+            <div class="stepper">
+                <button class="btn btn-danger btn-sm" onclick="cambiarFlechas(-1)">-1</button>
+                <span id="inspect-arrows" class="stepper-value">0</span> / <span id="inspect-max-arrows">0</span>
+                <button class="btn btn-primary btn-sm" onclick="cambiarFlechas(1)">+1</button>
             </div>
         </div>
 
         <!-- Cantidad (Solo para objetos Generales) -->
-        <div id="inspect-general-box" style="display:none; margin: 15px 0;">
-            <label style="display: block; font-size: 13px; color: #bbb; text-align: center;">Cantidad Apilada:</label>
-            <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 5px;">
-                <button onclick="cambiarCantidad(-1)" style="padding: 5px 10px; background: #8b0000; color: white; border: none; cursor: pointer;">-1</button>
-                <span id="inspect-cantidad" style="font-size: 20px; font-weight: bold;">1</span>
-                <button onclick="cambiarCantidad(1)" style="padding: 5px 10px; background: #0c6b5d; color: white; border: none; cursor: pointer;">+1</button>
+        <div id="inspect-general-box" class="inspect-section" style="display:none;">
+            <label class="section-label">Cantidad Apilada:</label>
+            <div class="stepper">
+                <button class="btn btn-danger btn-sm" onclick="cambiarCantidad(-1)">-1</button>
+                <span id="inspect-cantidad" class="stepper-value">1</span>
+                <button class="btn btn-primary btn-sm" onclick="cambiarCantidad(1)">+1</button>
             </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; gap: 5px; margin-top: 25px;">
-            <button onclick="cerrarInspectModal()" style="padding: 8px 10px; background: #555; color: white; border: none; cursor: pointer; flex: 1;">Cerrar</button>
-            <button onclick="abrirModalEdicion()" style="padding: 8px 10px; background: #b89325; color: white; border: none; cursor: pointer; flex: 1;">Editar</button>
-            <button onclick="eliminarItemSeleccionado()" style="padding: 8px 10px; background: #8b0000; color: white; border: none; cursor: pointer; flex: 1;">Eliminar</button>
+        <div class="modal-actions modal-actions--spread">
+            <button class="btn btn-muted" onclick="cerrarInspectModal()">Cerrar</button>
+            <button class="btn btn-edit" onclick="abrirModalEdicion()">Editar</button>
+            <button class="btn btn-danger" onclick="eliminarItemSeleccionado()">Eliminar</button>
         </div>
     </div>
 
     <!-- NUEVO: MODAL PARA EDITAR PROPIEDADES -->
-    <div id="edit-modal" style="display:none; position:fixed; top:15%; left:50%; transform: translate(-50%, 0); background:#222; padding:25px; border:1px solid #b89325; border-radius: 8px; width: 320px; color: white; z-index: 100;">
-        <h3 style="color:#b89325; margin-top:0; text-align: center;">Editar Ítem</h3>
+    <div id="edit-modal" class="modal" style="display:none;">
+        <h3 class="modal-title">Editar Ítem</h3>
         
-        <div style="margin-bottom: 15px;">
-            <label style="display: block; font-size: 13px; color: #bbb;">Nombre:</label>
-            <input type="text" id="edit-item-name" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white;">
+        <div class="field">
+            <label>Nombre:</label>
+            <input type="text" id="edit-item-name">
         </div>
 
-        <div id="edit-extra-stats-container" style="display: none; margin-bottom: 15px; padding: 10px; border: 1px dashed #555; border-radius: 4px; background: #1a1a1a;">
-            <label id="edit-extra-stat-label" style="display: block; font-size: 13px; color: #d4a373;">Estadística:</label>
-            <input type="text" id="edit-item-stat" style="width: 93%; padding: 8px; background: #111; border: 1px solid #444; color: white;">
+        <div id="edit-extra-stats-container" class="panel" style="display:none;">
+            <label id="edit-extra-stat-label">Estadística:</label>
+            <input type="text" id="edit-item-stat">
         </div>
 
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <div style="flex: 1;"><label style="font-size: 13px; color: #bbb;">Ancho:</label><input type="number" id="edit-item-w" min="1" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white;"></div>
-            <div style="flex: 1;"><label style="font-size: 13px; color: #bbb;">Alto:</label><input type="number" id="edit-item-h" min="1" style="width: 100%; padding: 8px; background: #111; border: 1px solid #444; color: white;"></div>
+        <div class="field-row">
+            <div class="field"><label>Ancho:</label><input type="number" id="edit-item-w" min="1"></div>
+            <div class="field"><label>Alto:</label><input type="number" id="edit-item-h" min="1"></div>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 10px;">
-            <button onclick="cerrarModalEdicion()" style="padding: 8px 15px; background: #555; color: white; border: none; cursor: pointer;">Cancelar</button>
-            <button onclick="guardarEdicion()" style="padding: 8px 15px; background: #0c6b5d; color: white; border: none; cursor: pointer;">Guardar</button>
+        <div class="modal-actions">
+            <button class="btn btn-muted" onclick="cerrarModalEdicion()">Cancelar</button>
+            <button class="btn btn-primary" onclick="guardarEdicion()">Guardar</button>
         </div>
     </div>
 
     <!-- NUEVO Modal para Modificar Monedas -->
-    <div id="coin-modal" style="display:none; position:fixed; top:20%; left:50%; transform: translate(-50%, 0); background:#222; padding:25px; border:1px solid #555; border-radius: 8px; width: 300px; color: white; z-index: 100;">
+    <div id="coin-modal" class="modal" style="display:none;">
         
-        <h3 style="color:#d4a373; margin-top:0; text-align: center;">Gestión de Billetera</h3>
-        <p style="font-size: 12px; color: #aaa; text-align: center; margin-bottom: 20px;">Ingresa las cantidades y elige si quieres sumarlas o restarlas.</p>
+        <h3 class="modal-title">Gestión de Billetera</h3>
+        <p class="modal-hint">Ingresa las cantidades y elige si quieres sumarlas o restarlas.</p>
         
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <div style="flex: 1; text-align: center;">
-                <label for="input-gold" style="display: block; margin-bottom: 5px; font-size: 13px; color: #b89325; font-weight: bold;">Oro</label>
-                <input type="number" id="input-gold" value="0" min="0" style="width: 100%; padding: 8px; box-sizing: border-box; background: #111; border: 1px solid #b89325; color: white; text-align: center;">
+        <div class="coin-fields">
+            <div class="coin-field coin-field--gold">
+                <label for="input-gold">Oro</label>
+                <input type="number" id="input-gold" value="0" min="0">
             </div>
-            <div style="flex: 1; text-align: center;">
-                <label for="input-silver" style="display: block; margin-bottom: 5px; font-size: 13px; color: #8c8c8c; font-weight: bold;">Plata</label>
-                <input type="number" id="input-silver" value="0" min="0" style="width: 100%; padding: 8px; box-sizing: border-box; background: #111; border: 1px solid #8c8c8c; color: white; text-align: center;">
+            <div class="coin-field coin-field--silver">
+                <label for="input-silver">Plata</label>
+                <input type="number" id="input-silver" value="0" min="0">
             </div>
-            <div style="flex: 1; text-align: center;">
-                <label for="input-bronze" style="display: block; margin-bottom: 5px; font-size: 13px; color: #d4a373; font-weight: bold;">Bronce</label>
-                <input type="number" id="input-bronze" value="0" min="0" style="width: 100%; padding: 8px; box-sizing: border-box; background: #111; border: 1px solid #d4a373; color: white; text-align: center;">
+            <div class="coin-field coin-field--bronze">
+                <label for="input-bronze">Bronce</label>
+                <input type="number" id="input-bronze" value="0" min="0">
             </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; gap: 10px;">
-            <button onclick="cerrarModalMonedas()" style="padding: 8px 10px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Cancelar</button>
-            <button onclick="procesarMonedas('restar')" style="padding: 8px 10px; background: #8b0000; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Quitar (-)</button>
-            <button onclick="procesarMonedas('sumar')" style="padding: 8px 10px; background: #0c6b5d; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Agregar (+)</button>
+        <div class="modal-actions modal-actions--spread">
+            <button class="btn btn-muted" onclick="cerrarModalMonedas()">Cancelar</button>
+            <button class="btn btn-danger" onclick="procesarMonedas('restar')">Quitar (-)</button>
+            <button class="btn btn-primary" onclick="procesarMonedas('sumar')">Agregar (+)</button>
         </div>
     </div>
 
     <!-- NUEVO Modal para Modificar Fichas -->
-    <div id="token-modal" style="display:none; position:fixed; top:20%; left:50%; transform: translate(-50%, 0); background:#222; padding:25px; border:1px solid #8d99ae; border-radius: 8px; width: 300px; color: white; z-index: 100;">
-        <h3 style="color:#8d99ae; margin-top:0; text-align: center;">Gestión de Fichas</h3>
+    <div id="token-modal" class="modal" style="display:none;">
+        <h3 class="modal-title">Gestión de Fichas</h3>
         
-        <div style="margin-bottom: 20px;">
-            <label for="input-fichas-Avar" style="display: block; margin-bottom: 5px; font-size: 13px; color: #edf2f4; font-weight: bold; text-align: center;">Fichas Avar</label>
-            <input type="number" id="input-fichas-Avar" value="0" min="0" style="width: 100%; padding: 8px; box-sizing: border-box; background: #111; border: 1px solid #8d99ae; color: white; text-align: center;">
+        <div class="field token-field">
+            <label for="input-fichas-Avar">Fichas Avar</label>
+            <input type="number" id="input-fichas-Avar" value="0" min="0">
         </div>
 
-        <div style="display: flex; justify-content: space-between; gap: 10px;">
-            <button onclick="cerrarModalFichas()" style="padding: 8px 10px; background: #555; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Cancelar</button>
-            <button onclick="procesarFichas('restar')" style="padding: 8px 10px; background: #8b0000; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Quitar (-)</button>
-            <button onclick="procesarFichas('sumar')" style="padding: 8px 10px; background: #0c6b5d; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1;">Agregar (+)</button>
+        <div class="modal-actions modal-actions--spread">
+            <button class="btn btn-muted" onclick="cerrarModalFichas()">Cancelar</button>
+            <button class="btn btn-danger" onclick="procesarFichas('restar')">Quitar (-)</button>
+            <button class="btn btn-primary" onclick="procesarFichas('sumar')">Agregar (+)</button>
+        </div>
+    </div>
+
+    <!-- NUEVO: Modal reutilizable para Alertas y Confirmaciones -->
+    <div id="dialog-modal" class="modal" style="display:none;">
+        <h3 id="dialog-title" class="modal-title">Aviso</h3>
+        <p id="dialog-message" class="modal-hint" style="font-size: 15px; color: var(--parchment);"></p>
+        
+        <div class="modal-actions modal-actions--spread">
+            <button id="dialog-cancel-btn" class="btn btn-muted" style="display:none;">Cancelar</button>
+            <button id="dialog-ok-btn" class="btn btn-primary">Aceptar</button>
         </div>
     </div>
 </body>
